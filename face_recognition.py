@@ -2,15 +2,15 @@ import numpy as np
 import cv2 as cv
 
 haarCascade = cv.CascadeClassifier("haar_face.xml") # reads in the xml haar cascade file
+videoCapture = cv.VideoCapture(0)
 
-
-people = ["Orlando", "Titus", "Geoffrey"]
+people = ["Orlando"]
 
 
 face_recognizer = cv.face.LBPHFaceRecognizer_create()
 face_recognizer.read('face_trained.yml')
 
-img = cv.imread("Photos/Orlando/test.jpg")
+success, img = videoCapture.read()
 
 gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
 cv.imshow("Person", gray)
