@@ -80,17 +80,8 @@ import pickle
 
 Window.size = (440, 1330)
 
-dbPasswd = "5martB3ll"  # password for AWS RDS database
-dbUser = "orlandoalexander"  # username for AWS RDS database
-dbHost = "aa8qf9oaqaoklw.cnem9ngqo5zs.eu-west-2.rds.amazonaws.com"  # endpoint for AWS RDS database
-dbData = {"passwd": dbPasswd, "user": dbUser,
-          "host": dbHost}  # dictionary storing minimum required data to connect to AWS RDS database.
-                           # This data is sent to server each time the database is accessed so the
-                           # sensitive information is kept secret as it is stored locally
-serverBaseURL = "http://nea-server-env.eba-6cwhuc3b.eu-west-2.elasticbeanstalk.com/"  # base URL to access AWS elastic beanstalk environment
-accessKey = "AKIASXUTHDSHXXHEBCEX"
-secretKey = "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"
 
+serverBaseURL = "http://nea-env.eba-6tgviyyc.eu-west-2.elasticbeanstalk.com/"  # base URL to access AWS elastic beanstalk environment
 
 
 class WindowManager(ScreenManager):
@@ -98,33 +89,35 @@ class WindowManager(ScreenManager):
     pass
 
 
+
 class Launch(Screen, MDApp):
-    # 'Launch' class serves to coordinate the correct launch screen for the mobile app depending on the current status of the app
+# 'Launch' class serves to coordinate the correct launch screen for the mobile app depending on the current status of the app
+
     def __init__(self, **kw):
         super().__init__(**kw)
         global jsonFilename, jsonStore
         jsonFilename = join(MDApp.get_running_app().user_data_dir,
-                            "jsonStore.json")  # if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
+                            "jsonStore.json")# if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
         # the 'join' class is used to create a single path name to the new file "jsonStore.json"
-        #jsonFilename = "jsonStore.json"
+
         jsonStore = JsonStore(
-            jsonFilename)  # wraps the filename as a json object to store data locally on the mobile phone
+            jsonFilename)# wraps the filename as a json object to store data locally on the mobile phone
         if not jsonStore.exists("localData"):
             jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "")
-        self.initialUse = jsonStore.get("localData")["initialUse"]  # variable which indicates that the app is running for the first time on the user's mobile
+        self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
+
         self.loggedIn = jsonStore.get("localData")["loggedIn"]
-        Clock.schedule_once(self.finishInitialising) # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
-                                                     # as the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called,
-                                                     # each of which requires access to Kivy ids to create the GUI and this is only possible if the instantiation is delayed
+        Clock.schedule_once(self.finishInitialising)# Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisationas the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
+
 
     def finishInitialising(self, dt):
         # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
-        # as the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
-        # and this is only possible if the instantiation is delayed.
+
         if self.loggedIn == "True":
             self.manager.transition = NoTransition()
             self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
-        elif self.loggedIn == "True":
+
+        elif self.initialUse == "True":
             self.manager.transition = NoTransition()
             self.manager.current = "SignIn"
         else:
@@ -701,7 +694,7 @@ class MessageResponses_viewAudio(MessageResponses_review, Screen, MDApp):
 
     def uploadAWS(self):
         # method which sends the data for the audio message recorded by the user as a pkl file to the AWS elastic beanstalk environment, where it is uploaded to AWS s3 using 'boto3' module
-        self.uploadData = {"accessKey": accessKey, "secretKey": secretKey, "bucketName": "nea-audio-messages",
+        self.uploadData = {"bucketName": "nea-audio-messages",
                            "s3File": self.messageID + ".pkl"}  # creates the dictionary which stores the metadata required to upload the personalised audio message to AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
         file = {"file": open(join(App.get_running_app().user_data_dir, self.messageID+".pkl"), "rb")} # opens the file to be sent using Flask's 'request' method (which contains the byte stream of audio data) and stores the file in a dictionary
         #file = {"file": open(self.messageID + ".pkl", "rb")}
@@ -733,7 +726,7 @@ class MessageResponses_viewAudio(MessageResponses_review, Screen, MDApp):
                     file.close()  # closes the file
                     print("pkl on computer")
             except:
-                self.downloadData = {"accessKey": accessKey, "secretKey": secretKey, "bucketName": "nea-audio-messages",
+                self.downloadData = {"bucketName": "nea-audio-messages",
                                      "s3File": self.fileName + ".pkl"}  # creates the dictionary which stores the metadata required to download the pkl file of the personalised audio message from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
                 response = requests.post(serverBaseURL + "/downloadPkl", self.downloadData)
                 self.audioData = response.content
