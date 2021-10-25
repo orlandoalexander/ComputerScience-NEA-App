@@ -1,9 +1,7 @@
 import cv2 as cv
 import time
-import boto3
 import string
 import random
-import mysql.connector
 import json
 from os.path import join
 import os
@@ -12,6 +10,7 @@ import numpy as np
 import glob
 import paho.mqtt.client as mqtt
 import shutil
+import requests
 
 haarCascade = cv.CascadeClassifier("haar_face.xml") # reads in the xml haar cascade file
 
@@ -22,25 +21,18 @@ if not os.path.isfile("labels.npy"):
     labelsNp = np.empty(0, int)
     np.save('labels.npy', labelsNp)
 
-dbPasswd = "5martB3ll"  # password for AWS RDS database
-dbUser = "orlandoalexander"  # username for AWS RDS database
-dbHost = "aa8qf9oaqaoklw.cnem9ngqo5zs.eu-west-2.rds.amazonaws.com"  # endpoint for AWS RDS database
-dbData = {"passwd": dbPasswd, "user": dbUser,
-          "host": dbHost}  # dictionary storing minimum required data to connect to AWS RDS database.
-                           # This data is sent to server each time the database is accessed so the
-                           # sensitive information is kept secret as it is stored locally
-serverBaseURL = "http://nea-server-env.eba-6cwhuc3b.eu-west-2.elasticbeanstalk.com/"  # base URL to access AWS elastic beanstalk environment
-accessKey = "AKIASXUTHDSHVCPHDCIZ"
-secretKey = "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"
 
-mydb = mysql.connector.connect(host=(dbData["host"]), user=(dbData["user"]), passwd=(dbData["passwd"]),
-                               database="ebdb")  # initialises the database using the details sent to API, which can be accessed with the 'request.form()' method
-myCursor = mydb.cursor()  # initialises a cursor which allows communication with mydb (MySQL database)
+serverBaseURL = "http://nea-server-env.eba-6cwhuc3b.eu-west-2.elasticbeanstalk.com/"  # base URL to access AWS elastic beanstalk environment
 
 
 class buttonPressed():
     def __init__(self):
         self.accountID = "yP8cyHE7qu1rlsPA"
+        with open('data.json') as jsonFile:
+            self.data = json.load(jsonFile)
+        self.data.update({self.accountID:{"people":[]}}) # updates json file to create empty parameter to store names of known visitors associated with a specific accountID
+        with open('data.json','w') as jsonFile:
+            json.dump(self.data, jsonFile)
 
 
     def captureImage(self):
@@ -200,9 +192,10 @@ class buttonPressed():
             os.remove(file) # deletes all the images captured of the visitor
 
     def uploadAWS_image(self, **kwargs):
-        s3 = boto3.client("s3", aws_access_key_id=accessKey, aws_secret_access_key=secretKey)  # initialises a connection to the S3 client on AWS
-        s3.upload_file(Filename=self.img_path, Bucket=kwargs["Bucket"], Key=kwargs["Key"])  # uploads the txt file to the S3 bucket called 'nea-audio-messages'. The name of the txt file when it is stored on S3 is the 'messageID' of the audio message which is being stored as a txt file.
-
+        self.uploadData = {"bucketName": kwargs["Bucket"], "s3File": kwargs["Key"]}  # creates the dictionary which stores the metadata required to upload the personalised audio message to AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
+        file = {"file": open(self.img_path,"rb")}  # opens the file to be sent using Flask's 'request' method (which contains the byte stream of audio data) and stores the file in a dictionary
+        response = requests.post(serverBaseURL + "/uploadS3", files=file, data=self.uploadData)  # sends post request to 'uploadS3' route on AWS server to upload the pkl file storing the data about the audio message to AWS s3 using 'boto3'
+        print(response)
 
     def publish_message_visitor(self, nameStatus):
         client.publish("visitor/{}".format(nameStatus), "{}, {}".format(str(self.accountID),str(self.visitID)))
@@ -222,4 +215,4 @@ client.username_pw_set(username="yrczhohs", password = "qPSwbxPDQHEI")
 client.on_connect = on_connect # creates callback for successful connection with broker
 client.connect("hairdresser.cloudmqtt.com", 18973) # parameters for broker web address and port number
 
-buttonPressed().captureImage()
+buttonPressed()
