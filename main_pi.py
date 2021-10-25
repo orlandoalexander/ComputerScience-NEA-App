@@ -192,7 +192,7 @@ class buttonPressed():
     def uploadAWS_image(self, **kwargs):
         self.data_S3Key = {"accountID": self.accountID}
         hashedKeys = requests.post(serverBaseURL + "/get_S3Key", self.data_S3Key).json
-        print(hashedKeys)
+        print(hashedKeys )
         accessKey = (hashlib.new("sha3_256",hashedKeys["accessKey"].encode())).hexdigest()
         secretKey = (hashlib.new("sha3_256", hashedKeys["secretKey"].encode())).hexdigest()
         s3 = boto3.client("s3", aws_access_key_id=accessKey, aws_secret_access_key=secretKey)  # initialises a connection to the S3 client on AWS using the 'accessKey' and 'secretKey' sent to the API
