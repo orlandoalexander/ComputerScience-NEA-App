@@ -65,7 +65,7 @@ class buttonPressed():
         if imageCaptured == True: # if a viable image of the visitor has been captured
             self.facialRecognition() # run facial recognition algorithm
         else:
-            self.update_visitorLog("noName")
+            self.update_visitorLog()
             self.publish_message_visitor("noName")
 
     def facialRecognition(self):
@@ -156,10 +156,10 @@ class buttonPressed():
         self.faceID = requests.post(serverBaseURL + "/create_ID", self.data_faceID)
         print(self.faceID.text)
 
-    def update_visitorLog(self, visitorName):
-        query = "INSERT INTO visitorLog(visitID, imageTimestamp, visitorName, accountID) VALUES ('%s','%s','%s','%s')" % (self.visitID, time.time(), visitorName, self.accountID)  # MySQL query to add the data sent with the API to the appropriate columns in the 'knownFaces' table
-        myCursor.execute(query)  # executes the query in the MySQL database
-        mydb.commit()  # commits the changes to the MySQL database made by the exe
+
+    def update_visitorLog(self):
+        self.data_visitorLog = {"visitID": self.visitID, "imageTimestamp": time.time(), "faceID": self.faceID, "accountID": self.accountID}
+        requests.post(serverBaseURL + "/updateVisitorLog", self.data_visitorLog)
         return
 
     def update_knowFaces(self):
