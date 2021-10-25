@@ -4,6 +4,7 @@ import string
 import random
 import json
 from os.path import join
+import boto3
 import os
 import threading
 import numpy as np
@@ -11,6 +12,7 @@ import glob
 import paho.mqtt.client as mqtt
 import shutil
 import requests
+import hashlib
 
 haarCascade = cv.CascadeClassifier("haar_face.xml") # reads in the xml haar cascade file
 
@@ -162,7 +164,6 @@ class buttonPressed():
         # creates a unique faceID for the face captured
         self.data_faceID = {"field": "faceID"}
         self.faceID = requests.post(serverBaseURL + "/create_ID", self.data_faceID)
-        print(self.faceID.text)
 
 
     def update_visitorLog(self):
@@ -189,10 +190,13 @@ class buttonPressed():
             os.remove(file) # deletes all the images captured of the visitor
 
     def uploadAWS_image(self, **kwargs):
-        self.uploadData = {"bucketName": kwargs["Bucket"], "s3File": kwargs["Key"]}  # creates the dictionary which stores the metadata required to upload the personalised audio message to AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
-        file = {"file": open(self.img_path,"rb")}  # opens the file to be sent using Flask's 'request' method (which contains the byte stream of audio data) and stores the file in a dictionary
-        response = requests.post(serverBaseURL + "/uploadS3", files=file, data=self.uploadData)  # sends post request to 'uploadS3' route on AWS server to upload the pkl file storing the data about the audio message to AWS s3 using 'boto3'
-        print(response)
+        self.data_S3Key = {"accountID": self.accountID}
+        hashedKeys = requests.post(serverBaseURL + "/get_S3Key", self.data_S3Key).json
+        print(hashedKeys)
+        accessKey = (hashlib.new("sha3_256",hashedKeys["accessKey"].encode())).hexdigest()
+        secretKey = (hashlib.new("sha3_256", hashedKeys["secretKey"].encode())).hexdigest()
+        s3 = boto3.client("s3", aws_access_key_id=accessKey, aws_secret_access_key=secretKey)  # initialises a connection to the S3 client on AWS using the 'accessKey' and 'secretKey' sent to the API
+        s3.upload_file(Filename=self.img_path, Bucket=kwargs["Bucket"], Key=kwargs["Key"])  # uploads the txt file to the S3 bucket called 'nea-audio-messages'. The name of the txt file when it is stored on S3 is the 'messageID' of the audio message which is being stored as a txt file.
 
     def publish_message_visitor(self, nameStatus):
         client.publish("visitor/{}".format(nameStatus), "{}, {}".format(str(self.accountID),str(self.visitID)))
