@@ -144,27 +144,15 @@ class buttonPressed():
 
 
     def create_visitID(self):
-        # creates a unique faceID for the face captured
-        while True: # creates an infinite loop
-            chars = string.ascii_uppercase + string.ascii_lowercase + string.digits  # creates a concatenated string of all the uppercase and lowercase alphabetic characters and all the digits (0-9)
-            self.visitID = ''.join(random.choice(chars) for i in range(16))  # the 'random' module randomly selects 16 characters from the string 'chars' to form the unique messageID
-            query = "SELECT EXISTS(SELECT * FROM visitorLog WHERE visitID = '%s')" % (self.visitID)  # 'query' variable stores string with MySQL command that is to be executed. The '%s' operator is used to insert variable values into the string.
-            myCursor.execute(query)  # the query is executed in the MySQL database which the variable 'myCursor' is connected to
-            result = (myCursor.fetchone()[0])  # returns the first result of the query result (accountID), if there is a result to be returned
-            if result == 0:
-                break
+        # creates a unique visitID for each visit
+        self.visitID = requests.post(serverBaseURL + "/create_ID")
+
 
 
     def create_faceID(self):
         # creates a unique faceID for the face captured
-        while True: # creates an infinite loop
-            chars = string.ascii_uppercase + string.ascii_lowercase + string.digits  # creates a concatenated string of all the uppercase and lowercase alphabetic characters and all the digits (0-9)
-            self.faceID = ''.join(random.choice(chars) for i in range(16))  # the 'random' module randomly selects 16 characters from the string 'chars' to form the unique messageID
-            query = "SELECT EXISTS(SELECT * FROM knownFaces WHERE faceID = '%s')" % (self.faceID)  # 'query' variable stores string with MySQL command that is to be executed. The '%s' operator is used to insert variable values into the string.
-            myCursor.execute(query)  # the query is executed in the MySQL database which the variable 'myCursor' is connected to
-            result = (myCursor.fetchone()[0])  # returns the first result of the query result (accountID), if there is a result to be returned
-            if result == 0:
-                break
+        self.faceID = requests.post(serverBaseURL + "/create_ID")
+        print(self.faceID)
 
 
     def update_visitorLog(self, visitorName):
@@ -215,4 +203,4 @@ client.username_pw_set(username="yrczhohs", password = "qPSwbxPDQHEI")
 client.on_connect = on_connect # creates callback for successful connection with broker
 client.connect("hairdresser.cloudmqtt.com", 18973) # parameters for broker web address and port number
 
-buttonPressed()
+buttonPressed().create_faceID()

@@ -25,7 +25,7 @@ import math
 import wave
 import importlib
 import sys
-from audiostream import get_input
+#from audiostream import get_input
 import pickle
 
 #
@@ -115,7 +115,7 @@ class Launch(Screen, MDApp):
 
         if self.loggedIn == "True":
             self.manager.transition = NoTransition()
-            self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
+            self.manager.current = "SignUp"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
 
         elif self.initialUse == "True":
             self.manager.transition = NoTransition()
