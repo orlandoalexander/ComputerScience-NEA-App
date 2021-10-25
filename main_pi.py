@@ -22,7 +22,7 @@ if not os.path.isfile("labels.npy"):
     np.save('labels.npy', labelsNp)
 
 
-serverBaseURL = "http://nea-server-env.eba-6cwhuc3b.eu-west-2.elasticbeanstalk.com/"  # base URL to access AWS elastic beanstalk environment
+serverBaseURL = "http://nea-env.eba-6tgviyyc.eu-west-2.elasticbeanstalk.com/"  # base URL to access AWS elastic beanstalk environment
 
 
 class buttonPressed():
@@ -145,15 +145,16 @@ class buttonPressed():
 
     def create_visitID(self):
         # creates a unique visitID for each visit
-        self.visitID = requests.post(serverBaseURL + "/create_ID")
+        self.data_vistID = {"field": "visitID"}
+        self.visitID = requests.post(serverBaseURL + "/create_ID", self.data_vistID)
 
 
 
     def create_faceID(self):
         # creates a unique faceID for the face captured
-        self.faceID = requests.post(serverBaseURL + "/create_ID")
-        print(self.faceID)
-
+        self.data_faceID = {"field": "faceID"}
+        self.faceID = requests.post(serverBaseURL + "/create_ID", self.data_faceID)
+        print(self.faceID.text)
 
     def update_visitorLog(self, visitorName):
         query = "INSERT INTO visitorLog(visitID, imageTimestamp, visitorName, accountID) VALUES ('%s','%s','%s','%s')" % (self.visitID, time.time(), visitorName, self.accountID)  # MySQL query to add the data sent with the API to the appropriate columns in the 'knownFaces' table
