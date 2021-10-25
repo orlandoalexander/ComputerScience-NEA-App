@@ -1,4 +1,4 @@
-import cv2 as cv
+from cv2 import cv2 as cv
 import time
 import string
 import random
@@ -33,10 +33,17 @@ class buttonPressed():
         self.data.update({self.accountID:{"people":[]}}) # updates json file to create empty parameter to store names of known visitors associated with a specific accountID
         with open('data.json','w') as jsonFile:
             json.dump(self.data, jsonFile)
+        self.captureImage()
+
 
 
     def captureImage(self):
-        self.videoCapture = cv.VideoCapture(0)
+        ret, self.videoCapture = cv.VideoCapture().read()
+        print(ret)
+        img = cv.imread("continueIcon.png")
+        cv.imshow("Over the Clouds",  self.videoCapture)
+
+        cv.waitKey()
         counter = 0
         imageCaptured = False
         self.blurFactor = []
@@ -62,11 +69,12 @@ class buttonPressed():
         self.create_visitID()
         self.create_faceID()
         self.uploadAWS_image(Bucket="nea-visitor-log", Key = self.visitID)
-        if imageCaptured == True: # if a viable image of the visitor has been captured
-            self.facialRecognition() # run facial recognition algorithm
-        else:
-            self.update_visitorLog()
-            self.publish_message_visitor("noName")
+        self.update_visitorLog()
+        # if imageCaptured == True: # if a viable image of the visitor has been captured
+        #     self.facialRecognition() # run facial recognition algorithm
+        # else:
+        #     self.update_visitorLog()
+        #     self.publish_message_visitor("noName")
 
     def facialRecognition(self):
         self.img = cv.imread(self.img_path) # opens the least blurry image of the visitor captured by the doorbell of the visitor - this image is identified by the first element in the tuple 'self.facialRecognition_image'
@@ -204,4 +212,4 @@ client.username_pw_set(username="yrczhohs", password = "qPSwbxPDQHEI")
 client.on_connect = on_connect # creates callback for successful connection with broker
 client.connect("hairdresser.cloudmqtt.com", 18973) # parameters for broker web address and port number
 
-buttonPressed().create_faceID()
+buttonPressed()
