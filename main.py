@@ -728,7 +728,7 @@ class MessageResponses_viewAudio(MessageResponses_review, Screen, MDApp):
             except:
                 self.downloadData = {"bucketName": "nea-audio-messages",
                                      "s3File": self.fileName + ".pkl"}  # creates the dictionary which stores the metadata required to download the pkl file of the personalised audio message from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
-                response = requests.post(serverBaseURL + "/downloadPkl", self.downloadData)
+                response = requests.post(serverBaseURL + "/downloadS3", self.downloadData)
                 self.audioData = response.content
                 with open(join(self.fileName + ".pkl"), "wb") as file:
                     pickle.dump(response.content,file)  # 'pickle' module serializes the data stored in the object (list) 'self.audioData' into a byte stream which is stored in pkl file
