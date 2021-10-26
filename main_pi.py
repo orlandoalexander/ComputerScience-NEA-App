@@ -73,7 +73,7 @@ class buttonPressed():
     def facialRecognition(self):
         self.img = cv.imread(self.img_path) # opens the least blurry image of the visitor captured by the doorbell of the visitor - this image is identified by the first element in the tuple 'self.facialRecognition_image'
         self.gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
-        self.faceRectangle = haarCascade.detectMultiScale(self.gray, scaleFactor=1.1, minNeighbors=4)
+        self.faceRectangle = haarCascade.detectMultiScale(self.gray, scaleFactor=1.1, minNeighbors=6)
         self.faceIDs = []
         with open('data.json') as jsonFile:
             self.data = json.load(jsonFile)
@@ -85,14 +85,16 @@ class buttonPressed():
             for (x, y, w, h) in self.faceRectangle:
                 self.faceROI = self.gray[y:y + h,x:x + h]  # crops the image to store only the region containing a detected face, which reduces the chance of noise interfering with the face recognition
                 self.label, self.confidence = self.faceRecognizer.predict(self.faceROI)  # runs facial recognition algorithm, returning the name of the faceID identified and the confidence of this identification
-            if self.confidence < 90:
-                self.faceID = self.faceIDs[self.label]
-                print(self.faceID, self.confidence)
-            else:
-                print(self.label, self.confidence)
-                self.faceID = self.create_faceID()
+                if self.confidence <= 100:
+                    self.faceID = self.faceIDs[self.label]
+                    print(self.faceID, self.confidence)
+                else:
+                    self.faceID = self.create_faceID()
+                    print(self.faceID, self.confidence)
         except:
+            self.confidence = ""
             self.faceID = self.create_faceID()
+            print(self.faceID)
         self.update_visitorLog()
         self.publish_message_visitor()
         for img in os.listdir("Photos/Visitor"):
@@ -122,7 +124,7 @@ class buttonPressed():
                 img_array = cv.imread(img_path)
                 gray = cv.cvtColor(img_array, cv.COLOR_BGR2GRAY)
 
-                faces_rect = haarCascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4)
+                faces_rect = haarCascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=6)
 
                 for (x, y, w, h) in faces_rect:
                     faces_roi = gray[y:y + h, x:x + w]  # crops image to just the face in the image, which reduces the chance of noise interfering with the face recognition
@@ -153,7 +155,7 @@ class buttonPressed():
 
 
     def update_visitorLog(self):
-        self.data_visitorLog = {"visitID": self.visitID, "imageTimestamp": time.time(), "faceID": self.faceID, "accountID": self.accountID}
+        self.data_visitorLog = {"visitID": self.visitID, "imageTimestamp": time.time(), "faceID": self.faceID, "confidence": self.confidence, "accountID": self.accountID}
         requests.post(serverBaseURL + "/update_visitorLog", self.data_visitorLog)
         return
 
