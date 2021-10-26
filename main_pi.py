@@ -44,14 +44,13 @@ class buttonPressed():
         self.blurFactor = []
         while flag < 10:
             success, img = self.videoCapture.read()
-
             gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
             faceDetect = haarCascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4)  # returns rectangular coordinates of a face.
             # scaleFactor is the percentage by which the image is resized on each iteration of the algorithm to attempt to detect a face in the image, as the face size used in the haar cascade xml is constant, but face sizes in the test image may vary. A small percentage value (i.e. 1.05 which would reduce image size by 5% on each iteration) would mean there is a small step for each resizing, so there is a greater chance of correctly detecting all the faces in the image, although it will be slower than using a larger scale factor
             # minNeighbours specifies how many neighbours each candidate rectangle should have to retain it. In other words, the minimum number of positive rectangles (detect facial features) that need to be adjacent to a positive rectangle in order for it to be considered actually positive. A higher value of minNeighbours will result in less detections but with high quality - somewhere between 3-6
             blurFactor = cv.Laplacian(img, cv.CV_64F).var()# Laplacian operator calculates the gradient change values in an image (i.e. transitions from black to white in greyscale image), so it is used for edge detection. Here, the variance of this operator on each image is returned; if an image contains high variance then there is a wide spread of responses, both edge-like and non-edge like, which is representative of a normal, in-focus image. But if there is very low variance, then there is a tiny spread of responses, indicating there are very little edges in the image, which is typical of a blurry image
             num_faceDetect = len(faceDetect) # finds number of faces detected in image
-            if num_faceDetect >=1 and blurFactor >= 100 and flag > 0: # if at least 1 face has been detected and image isn't blurry, save the image
+            if num_faceDetect >=1 and blurFactor >= 50 and flag > 0: # if at least 1 face has been detected and image isn't blurry, save the image
                 cv.imwrite("Photos/Visitor/frame%s.png" % counter, img)  # save frame as JPEG file
                 self.blurFactor.append((counter, blurFactor))
                 imageCaptured = True
@@ -74,8 +73,6 @@ class buttonPressed():
     def facialRecognition(self):
         self.img = cv.imread(self.img_path) # opens the least blurry image of the visitor captured by the doorbell of the visitor - this image is identified by the first element in the tuple 'self.facialRecognition_image'
         self.gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
-        cv.imshow("img", self.gray)
-        cv.waitKey()
         self.faceRectangle = haarCascade.detectMultiScale(self.gray, scaleFactor=1.1, minNeighbors=4)
         self.faceIDs = []
         with open('data.json') as jsonFile:
@@ -96,8 +93,8 @@ class buttonPressed():
                 self.faceID = self.create_faceID()
         except:
             self.faceID = self.create_faceID()
-        self.publish_message_visitor()
         self.update_visitorLog()
+        self.publish_message_visitor()
         for img in os.listdir("Photos/Visitor"):
             if not os.path.isdir("Photos/{}".format(self.faceID)):
                 os.mkdir("Photos/{}".format(self.faceID))
