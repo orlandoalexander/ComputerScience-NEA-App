@@ -67,7 +67,6 @@ class buttonPressed():
         self.visitID = self.create_visitID()
         self.uploadAWS_image(Bucket="nea-visitor-log", Key = self.visitID)
         if imageCaptured == True: # if a viable image of the visitor has been captured
-            self.publish_message_visitor()
             self.facialRecognition() # run facial recognition algorithm
         else:
             self.publish_message_visitor()
@@ -75,8 +74,9 @@ class buttonPressed():
     def facialRecognition(self):
         self.img = cv.imread(self.img_path) # opens the least blurry image of the visitor captured by the doorbell of the visitor - this image is identified by the first element in the tuple 'self.facialRecognition_image'
         self.gray = cv.cvtColor(self.img, cv.COLOR_BGR2GRAY)
+        cv.imshow("img", self.gray)
+        cv.waitKey()
         self.faceRectangle = haarCascade.detectMultiScale(self.gray, scaleFactor=1.1, minNeighbors=4)
-
         self.faceIDs = []
         with open('data.json') as jsonFile:
             self.data = json.load(jsonFile)
@@ -92,6 +92,7 @@ class buttonPressed():
                 self.faceID = self.faceIDs[self.label]
                 print(self.faceID, self.confidence)
             else:
+                print(self.label, self.confidence)
                 self.faceID = self.create_faceID()
         except:
             self.faceID = self.create_faceID()
@@ -103,6 +104,7 @@ class buttonPressed():
             shutil.move("Photos/Visitor/{}".format(img), "Photos/{}/{}".format(self.faceID, img))
         if self.faceID not in self.faceIDs:
             self.faceIDs.append(self.faceID)
+            self.update_knownFaces()
         self.label = self.faceIDs.index(self.faceID)
         self.data[self.accountID]["faceIDs"] = self.faceIDs
         with open('data.json', 'w') as f:
@@ -136,7 +138,6 @@ class buttonPressed():
         face_recognizer.save("face_trained.yml")  # saves the trained model
         np.save('features.npy', featuresNp)
         np.save("labels.npy", labelsNp)
-        os.rmdir(path)
 
 
 
@@ -159,6 +160,11 @@ class buttonPressed():
         requests.post(serverBaseURL + "/update_visitorLog", self.data_visitorLog)
         return
 
+    def update_knownFaces(self):
+        self.data_knownFaces = {"faceID": self.faceID, "faceName": "", "accountID": self.accountID}
+        requests.post(serverBaseURL + "/update_knownFaces", self.data_knownFaces)
+        return
+
     def uploadAWS_image(self, **kwargs):
         fernet = Fernet(self.accountID.encode()) # instantiate Fernet class with users accountID as the key
         self.data_S3Key = {"accountID": self.accountID}
@@ -170,7 +176,7 @@ class buttonPressed():
 
 
     def publish_message_visitor(self):
-        client.publish("visit/{}".format(str(self.accountID)), "{}".format(str(self.visitID)))
+        client.publish("visit/{}".format(self.accountID), "{}".format(str(self.visitID)))
         return
 
 def on_connect(client, userdata, flags, rc):
