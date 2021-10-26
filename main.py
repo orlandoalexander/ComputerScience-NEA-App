@@ -23,8 +23,7 @@ import threading
 import time
 import math
 import wave
-import importlib
-import sys
+import paho.mqtt.client as mqtt
 #from audiostream import get_input
 import pickle
 
@@ -195,7 +194,7 @@ class SignUp(Screen, MDApp):
 
     def updateUsers(self):
         # add user's details to 'users' tabel in AWS RDS database
-        self.dbData_update = dbData # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
+        self.dbData_update = {} # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_update["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData'
         self.dbData_update["firstName"] = self.firstName  # adds the variable 'firstName' to the dictionary 'dbData'
         self.dbData_update["surname"] = self.surname  # adds the variable 'surname' to the dictionary 'dbData'
@@ -269,7 +268,7 @@ class SignIn(Screen, MDApp):
 
     def verifyUser(self):
         # verifies the email and password entered by the user
-        self.dbData_verify = dbData # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
+        self.dbData_verify = {}# dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_verify["email"] = self.email # adds the variable 'email' to the dictionary 'dbData'
         self.dbData_verify["password"] = self.hashedPassword # adds the variable 'password' to the dictionary 'dbData'
         response = requests.post(serverBaseURL + "/verifyUser", self.dbData_verify) # sends a post request to the 'verifyUser' route of the AWS server to validate the details (email and password) entered by the user
@@ -334,7 +333,7 @@ class MessageResponses_add(Screen, MDApp):
         super().__init__(**kw)
         self.initialUse = jsonStore.get("localData")["initialUse"]  # assigns the value of 'initialUse' to the variable 'self.initialUse' from the local jsonStore
         self.accountID = jsonStore.get("localData")["accountID"]  # assigns the value of 'accounID' to the variable 'self.accountID' from the local jsonStore
-        self.dbData_view = dbData  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
+        self.dbData_view = {} # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_view["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData'
         response = requests.post(serverBaseURL + "/view_audioMessages",self.dbData_view)  # sends a post request to the 'view_audioMessages' route of the AWS server to fetch all the data about all the audio messages associated with that user
         self.audioMessages = response.json()
@@ -625,7 +624,7 @@ class MessageResponses_review(Screen, MDApp):
         # method which is called when the button 'Save' is tapped on the dialog box which allows the user to input the name of the audio message they recorded/typed
         for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the audio message they recorded/typed
             if isinstance(object, MDTextField): # if the object is an MDTextField
-                self.dbData_name = dbData  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
+                self.dbData_name = {} # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
                 self.dbData_name["messageName"] = object.text  # adds the variable 'object.text' to the dictionary 'dbData_create'
                 self.dbData_name["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData_create'
                 response = requests.post(serverBaseURL + "/verify_messageName", self.dbData_name)  # sends post request to 'verify_messageName' route on AWS server to check whether the message name that the user has inputted has already been assigned to one of their audio messages
@@ -652,7 +651,7 @@ class MessageResponses_review(Screen, MDApp):
 
     def create_messageID(self):
         # creates a unique messageID for the audio message created by the user
-        self.dbData_create = dbData # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
+        self.dbData_create = {}# dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         while True: # creates an infinite loop
             chars = string.ascii_uppercase + string.ascii_lowercase + string.digits  # creates a concatenated string of all the uppercase and lowercase alphabetic characters and all the digits (0-9)
             messageID = ''.join(random.choice(chars) for i in range(
@@ -666,7 +665,7 @@ class MessageResponses_review(Screen, MDApp):
         return messageID # returns the unique message ID generated for this audio message
 
     def deleteMessage(self):
-        self.dbData_update = dbData  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
+        self.dbData_update = {} # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_update["messageID"] = self.messageID  # adds the variable 'messageID' to the dictionary 'dbData_update'
         response = requests.post(serverBaseURL + "/delete_audioMessages", self.dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
 
@@ -683,7 +682,7 @@ class MessageResponses_viewAudio(MessageResponses_review, Screen, MDApp):
 
     def update_audioMessages(self):
         # method which updates the MySQL table to store the data about the audio message created by the user
-        self.dbData_update = dbData  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
+        self.dbData_update = {} # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_update["messageID"] = self.messageID  # adds the variable 'messageID' to the dictionary 'dbData_update'
         self.dbData_update["messageName"] = self.messageName  # adds the variable 'messageName' to the dictionary 'dbData_update'
         self.dbData_update["fileText"] = "Null"  # adds the 'null' variable 'fileText' to the dictionary 'dbData_update'
@@ -776,7 +775,7 @@ class MessageResponses_createText(MessageResponses_review, Screen, MDApp):
     def update_audioMessages(self):
         # method which updates the MySQL table to store the data about the audio message created by the user
         self.textMessage = self.ids.textMessage.text
-        self.dbData_update = dbData  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
+        self.dbData_update = {} # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_update["messageID"] = self.messageID  # adds the variable 'messageID' to the dictionary 'dbData_update'
         self.dbData_update["messageName"] = self.messageName  # adds the variable 'messageName' to the dictionary 'dbData_update'
         self.dbData_update["fileText"] = self.textMessage # adds the 'null' variable 'fileText' to the dictionary 'dbData_update'
@@ -817,3 +816,19 @@ class MyApp(MDApp):
 if __name__ == "__main__":  # when the program is launched, if the name of the file is the main program (i.e. it is not a module being imported by another file) then this selection statement is True
     MyApp().run()  # the run method is inherited from the 'MDApp' class which is inherited by the class 'MyApp'
 
+def on_connect(client, userdata, flags, rc):
+    if rc == 0: # if connection is successful
+        client.subscribe("visit/{}".format("test"))
+        print("connected")
+    else:
+        # attempts to reconnect
+        client.on_connect = on_connect
+        client.username_pw_set(username="yrczhohs", password = "qPSwbxPDQHEI")
+        client.connect("hairdresser.cloudmqtt.com", 18973)
+
+client = mqtt.Client()
+client.username_pw_set(username="yrczhohs", password = "qPSwbxPDQHEI")
+client.on_connect = on_connect # creates callback for successful connection with broker
+client.connect("hairdresser.cloudmqtt.com", 18973) # parameters for broker web address and port number
+
+client.loop_forever()
