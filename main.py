@@ -13,22 +13,7 @@ from kivy.core.window import Window
 from kivy.animation import Animation
 from kivy.storage.jsonstore import JsonStore
 from os.path import join
-import os
-import re
-import random
-import string
-import requests
-import hashlib
-import threading
-import time
-import math
-import wave
-import paho.mqtt.client as mqtt
-#from audiostream import get_input
-import pickle
-import cv2 as cv
-
-#
+import os#
 # import pyaudio
 # import wave
 #
@@ -76,6 +61,21 @@ import cv2 as cv
 # wf.setframerate(44100)
 # wf.writeframes(b''.join(frames))
 # wf.close()
+import re
+import random
+import string
+import requests
+import hashlib
+import threading
+import time
+import math
+import wave
+import paho.mqtt.client as mqtt
+#from audiostream import get_input
+import pickle
+import cv2 as cv
+
+
 
 
 Window.size = (440, 1330)
@@ -121,9 +121,9 @@ class Launch(Screen, MDApp):
             client.on_connect = on_connect  # creates callback for successful connection with broker
             client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
             client.loop_start()  # creates thread which runs parallel to main thread
-
-            self.manager.transition = NoTransition()
-            self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
+            display_visitorImage("hh")
+            #self.manager.transition = NoTransition()
+            #self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
 
 
         elif self.initialUse == "True":
@@ -828,9 +828,8 @@ class MessageResponses_createText(MessageResponses_review, Screen, MDApp):
 
 
 class VisitorImage(Screen, MDApp):
-    def __init__(self, **kw):
-        super().__init__(**kw)
-        print("hi")
+    pass
+
 
 
 class nameMessage_content(BoxLayout):
@@ -868,14 +867,15 @@ def update_knownFaces(faceID):
     requests.post(serverBaseURL + "/update_knownFaces", data_knownFaces)
 
 def display_visitorImage(visitID):
-    downloadData = {"bucketName": "nea-visitor-log","s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
-    response = requests.post(serverBaseURL + "/downloadS3", downloadData)
-    visitorImage = response.content
-    f = open(join(MDApp.get_running_app().user_data_dir, 'visitorImage.png'), 'wb')
-    f.write(visitorImage)
-    f.close()
+    # downloadData = {"bucketName": "nea-visitor-log","s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
+    # response = requests.post(serverBaseURL + "/downloadS3", downloadData)
+    # visitorImage = response.content
+    # f = open('visitorImage.png', 'wb')
+    # f.write(visitorImage)
+    # f.close()
     MDApp.get_running_app().manager.current = "VisitorImage"
-    MDApp.get_running_app().manager.current.__init__()
+    MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.source = 'visitorImage.png' # access ids for screen 'VisitorImage' from outside class to set source of visitorImage ID to path to image of visitor in mobile app
+
 
 
 def on_connect(client, userdata, flags, rc):
