@@ -26,6 +26,7 @@ import wave
 import paho.mqtt.client as mqtt
 #from audiostream import get_input
 import pickle
+import cv2 as cv
 
 #
 # import pyaudio
@@ -113,15 +114,24 @@ class Launch(Screen, MDApp):
         # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
 
         if self.loggedIn == "True":
+            self.accountID = jsonStore.get("localData")["accountID"]
+            # connect to MQTT broker to receive messages when visitor presses doorbell as already logged in
+            client = mqtt.Client()
+            client.username_pw_set(username="yrczhohs", password="qPSwbxPDQHEI")
+            client.on_connect = on_connect  # creates callback for successful connection with broker
+            client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
+            client.loop_start()  # creates thread which runs parallel to main thread
+
             self.manager.transition = NoTransition()
-            self.manager.current = "SignUp"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
+            self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
+
 
         elif self.initialUse == "True":
             self.manager.transition = NoTransition()
-            self.manager.current = "SignIn"
+            self.manager.current = "SignUp"
         else:
             self.manager.transition = NoTransition()
-            self.manager.current = "SignUp"
+            self.manager.current = "SignIn"
 
 
 class SignUp(Screen, MDApp):
@@ -188,8 +198,8 @@ class SignUp(Screen, MDApp):
 
     def create_accountID(self):
         # creates a unique accountID for the user
-        chars = string.ascii_uppercase + string.ascii_lowercase + string.digits  # creates a concatenated string of all the uppercase and lowercase alphabetic characters and all the digits (0-9)
-        self.accountID = ''.join(random.choice(chars) for i in range(16))  # the 'random' module randomly selects 16 characters from the string 'chars' to form the unique accountID
+        self.data_accountID = {"field": "accountID"}
+        self.accountID = requests.post(serverBaseURL + "/create_ID", self.data_accountID).text
         self.updateUsers()
 
     def updateUsers(self):
@@ -218,6 +228,14 @@ class SignUp(Screen, MDApp):
             else:
                 jsonStore.put("localData", initialUse=self.initialUse,
                                    loggedIn="True", accountID = self.accountID) # updates json object to reflect that user has successfully created an account
+
+                # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in and have unique accountID
+                client = mqtt.Client()
+                client.username_pw_set(username="yrczhohs", password="qPSwbxPDQHEI")
+                client.on_connect = on_connect  # creates callback for successful connection with broker
+                client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
+                client.loop_start()  # creates thread which runs parallel to main thread
+
                 if self.initialUse == "True":  # if the app is running for the first time on the user's mobile
                     self.manager.transition = NoTransition()  # creates a cut transition type
                     self.manager.current = "Homepage"  # switches to 'Homepage' GUI
@@ -279,6 +297,13 @@ class SignIn(Screen, MDApp):
         else:
             self.accountID = response.text # if the user inputs details which match an account stored in the MySQL database, their unique accountID is returned
             jsonStore.put("localData", initialUse=self.initialUse, loggedIn="True", accountID = self.accountID)  # updates json object to reflect that user has successfully signed in
+            # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in
+            client = mqtt.Client()
+            client.username_pw_set(username="yrczhohs", password="qPSwbxPDQHEI")
+            client.on_connect = on_connect  # creates callback for successful connection with broker
+            client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
+            client.loop_start()  # creates thread which runs parallel to main thread
+
             if self.initialUse == "True": # if the app is running for the first time on the user's mobile
                 self.manager.transition = NoTransition()  # creates a cut transition type
                 self.manager.current = "Homepage"  # switches to 'Homepage' GUI
@@ -801,6 +826,13 @@ class MessageResponses_createText(MessageResponses_review, Screen, MDApp):
                               d=0.03)  # end properties of the snackbar animation's closing motion
         animation.start(self.ids.snackbar)  # executes the closing animation
 
+
+class VisitorImage(Screen, MDApp):
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        print("hi")
+
+
 class nameMessage_content(BoxLayout):
     # 'nameMessage_content' class creates the specific graphic elements for the dialog box which allows the user to enter the name of the audio message. The GUI is created in the kv file.
     pass
@@ -812,23 +844,55 @@ class MyApp(MDApp):
         layout = Builder.load_file("layout.kv")  # loads the 'layout.kv' file
         return layout
 
+def on_message_visit(client, userdata, msg):
+    visitID = msg.payload.decode()
+    data_visitID = {"visitID": str(visitID)}
+    res = None
+    while res == None: # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
+        res = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
+    faceID = res[1]
+    confidence = res[2]
+    data_faceID = {"faceID": str(faceID)}
+    faceName = None
+    while faceName == None: # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
+        faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
+    if faceName == "":
+        update_knownFaces(faceID)
+    else:
+        print("Visitor is "+faceName+" with a confidence of "+str(confidence))
+    display_visitorImage(visitID)
 
-if __name__ == "__main__":  # when the program is launched, if the name of the file is the main program (i.e. it is not a module being imported by another file) then this selection statement is True
-    MyApp().run()  # the run method is inherited from the 'MDApp' class which is inherited by the class 'MyApp'
+def update_knownFaces(faceID):
+    faceName = input("Visitor couldn't be recognised. Enter name: ")
+    data_knownFaces = {"faceName": faceName, "faceID": faceID}
+    requests.post(serverBaseURL + "/update_knownFaces", data_knownFaces)
+
+def display_visitorImage(visitID):
+    downloadData = {"bucketName": "nea-visitor-log","s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
+    response = requests.post(serverBaseURL + "/downloadS3", downloadData)
+    visitorImage = response.content
+    f = open(join(MDApp.get_running_app().user_data_dir, 'visitorImage.png'), 'wb')
+    f.write(visitorImage)
+    f.close()
+    MDApp.get_running_app().manager.current = "VisitorImage"
+    MDApp.get_running_app().manager.current.__init__()
+
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0: # if connection is successful
-        client.subscribe("visit/{}".format("test"))
-        print("connected")
+        accountID = jsonStore.get("localData")["accountID"]
+        client.subscribe("visit/{}".format(accountID))
+        client.message_callback_add("visit/{}".format(accountID), on_message_visit)
     else:
         # attempts to reconnect
         client.on_connect = on_connect
         client.username_pw_set(username="yrczhohs", password = "qPSwbxPDQHEI")
         client.connect("hairdresser.cloudmqtt.com", 18973)
 
-client = mqtt.Client()
-client.username_pw_set(username="yrczhohs", password = "qPSwbxPDQHEI")
-client.on_connect = on_connect # creates callback for successful connection with broker
-client.connect("hairdresser.cloudmqtt.com", 18973) # parameters for broker web address and port number
 
-client.loop_forever()
+if __name__ == "__main__":  # when the program is launched, if the name of the file is the main program (i.e. it is not a module being imported by another file) then this selection statement is True
+    MyApp().run()  # the run method is inherited from the 'MDApp' class which is inherited by the class 'MyApp'
+
+
+
+

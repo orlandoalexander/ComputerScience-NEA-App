@@ -9,6 +9,7 @@ WindowManager: #initiates and orders all screens/classes
     MessageResponses_createAudio:
     MessageResponses_viewAudio:
     MessageResponses_createText:
+    VisitorImage:
 
 
 <MDTextField>
@@ -693,6 +694,18 @@ WindowManager: #initiates and orders all screens/classes
             size_hint: 1, 0.13
             pos_hint: {"center_x": 0.5, "top":0}
 
+
+<VisitorImage>:
+
+    name: "VisitorImage"
+
+    FloatLayout:
+        Image:
+            id: background #unique identifier for this specific image
+            source: "SmartBell_visitor_image.png"
+            size: self.size #sets image to same size as screen
+            allow_stretch: True #allows image to be stretched so that it fills the screen
+            keep_ratio: False #allows image proportions to be altered so that it fills the screen
 
 
 

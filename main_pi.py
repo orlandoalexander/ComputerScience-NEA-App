@@ -27,7 +27,7 @@ serverBaseURL = "http://nea-env.eba-6tgviyyc.eu-west-2.elasticbeanstalk.com/"  #
 
 class buttonPressed():
     def __init__(self):
-        self.accountID = "jF7sxsG47O0EhGKSRIGKAwSreGFOjfNdHypYAii7u8b="
+        self.accountID = "CYxBRru8w4euMX1cPwgoZatC2LXdNzWjSnPZgdwpuUX="
         with open('data.json') as jsonFile:
             self.data = json.load(jsonFile)
         if self.accountID not in self.data: # if data for account not yet stored
