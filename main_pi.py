@@ -5,7 +5,6 @@ import boto3
 import os
 import threading
 import numpy as np
-import glob
 import paho.mqtt.client as mqtt
 import shutil
 import requests

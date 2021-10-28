@@ -115,6 +115,7 @@ class Launch(Screen, MDApp):
 
         if self.loggedIn == "True":
             self.accountID = jsonStore.get("localData")["accountID"]
+            print(self.accountID)
             # connect to MQTT broker to receive messages when visitor presses doorbell as already logged in
             client = mqtt.Client()
             client.username_pw_set(username="yrczhohs", password="qPSwbxPDQHEI")
