@@ -3,6 +3,7 @@ from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.taptargetview import MDTapTargetView
 from kivymd.uix.button import MDFlatButton, MDRaisedButton
+from kivy.uix.image import AsyncImage
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.core.audio import SoundLoader
@@ -26,6 +27,7 @@ import wave
 import paho.mqtt.client as mqtt
 #from audiostream import get_input
 import pickle
+
 
 # import pyaudio
 # import wave
@@ -77,7 +79,7 @@ import pickle
 
 
 
-Window.size = (440, 1330)
+Window.size = (470, 850)
 
 
 serverBaseURL = "http://nea-env.eba-6tgviyyc.eu-west-2.elasticbeanstalk.com/"  # base URL to access AWS elastic beanstalk environment
@@ -120,9 +122,8 @@ class Launch(Screen, MDApp):
             client.on_connect = on_connect  # creates callback for successful connection with broker
             client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
             client.loop_start()  # creates thread which runs parallel to main thread
-            display_visitorImage("h")
-            #self.manager.transition = NoTransition()
-            #self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
+            self.manager.transition = NoTransition()
+            self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
 
 
         elif self.initialUse == "True":
@@ -859,26 +860,25 @@ def on_message_visit(client, userdata, msg):
         update_knownFaces(faceID)
     else:
         print("Visitor is "+faceName+" with a confidence of "+str(confidence))
-    display_visitorImage(visitID)
+    display_visitorImage(visitID, faceName)
 
 def update_knownFaces(faceID):
     faceName = input("Visitor couldn't be recognised. Enter name: ")
     data_knownFaces = {"faceName": faceName, "faceID": faceID}
     requests.post(serverBaseURL + "/update_knownFaces", data_knownFaces)
 
-def display_visitorImage(visitID):
-    # downloadData = {"bucketName": "nea-visitor-log","s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
-    # response = requests.post(serverBaseURL + "/downloadS3", downloadData)
-    # visitorImage = response.content
-    # f = open('visitorImage.png', 'wb')
-    # f.write(visitorImage)
-    # f.close()
+def display_visitorImage(visitID, faceName):
+    downloadData = {"bucketName": "nea-visitor-log","s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
+    response = requests.post(serverBaseURL + "/downloadS3", downloadData)
+    visitorImage_data = response.content
+    f = open(join(MDApp.get_running_app().user_data_dir,'visitorImage.png'), 'wb')
+    f.write(visitorImage_data)
+    f.close()
     MDApp.get_running_app().manager.current = "VisitorImage"
-
-    i = AsyncImage(source='visitorImage.png',pos_hint = {"center_x":0.5, "center_y":0.53})
-    MDApp.get_running_app().manager.get_screen('VisitorImage').ids.test.add_widget(i)
-
-    #MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.source = "visitorImage.png" # access ids for screen 'VisitorImage' from outside class to set source of visitorImage ID to path to image of visitor in mobile app
+    visitorImage = AsyncImage(source=join(MDApp.get_running_app().user_data_dir,'visitorImage.png'),pos_hint = {"center_x":0.5, "center_y":0.53}) # AsyncImage loads image as background thread
+    visitorImage.reload() # reloads the image file to ensure the latest stored image is used
+    MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(visitorImage) # accesses screen ids and adds the visitor image as a widget to a nested float layout
+    MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorName.text = faceName
 
 
 

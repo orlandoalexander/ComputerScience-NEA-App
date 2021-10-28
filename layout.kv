@@ -707,10 +707,8 @@ WindowManager: #initiates and orders all screens/classes
             allow_stretch: True #allows image to be stretched so that it fills the screen
             keep_ratio: False #allows image proportions to be altered so that it fills the screen
 
-
         FloatLayout:
-            id: test
-
+            id: visitorImage
 
         Image:
             id: border
@@ -718,6 +716,29 @@ WindowManager: #initiates and orders all screens/classes
             size: self.size
             allow_stretch: True #allows image to be stretched so that it fills the screen
             keep_ratio: False #allows image proportions to be altered so that it fills the screen
+
+        Image:
+            id: label
+            source: "SmartBell_visitor_image-label.png"
+            size: self.size
+            allow_stretch: True #allows image to be stretched so that it fills the screen
+            keep_ratio: False #allows image proportions to be altered so that it fills the screen
+
+        Label:
+            id: visitorName
+            text_size: self.size # dimensions for text
+            font_size: 20 # font size for text
+            halign: 'center' # alignment of text
+            valign: 'middle'
+            pos_hint: {"center_x": 0.83, "center_y": 0.6}
+            size_hint: 0.21,0.1
+            canvas.before:
+                PushMatrix
+                Rotate:
+                    angle: -70
+                    origin: self.center
+            canvas.after:
+                PopMatrix
 
 
 
