@@ -710,8 +710,18 @@ WindowManager: #initiates and orders all screens/classes
         Image:
             id: visitorImage #unique identifier for this specific image
             size: self.size #sets image to same size as screen
+
+            pos_hint: {"center_x": 0.5, "center_y":0.53}
+
+
+        Image:
+            id: border
+            source: "SmartBell_visitor_image-border.png"
+            size: self.size
             allow_stretch: True #allows image to be stretched so that it fills the screen
             keep_ratio: False #allows image proportions to be altered so that it fills the screen
+
+
 
 
 

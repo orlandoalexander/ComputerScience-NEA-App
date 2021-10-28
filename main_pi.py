@@ -14,6 +14,8 @@ from cryptography.fernet import Fernet
 
 haarCascade = cv.CascadeClassifier("haar_face.xml") # reads in the xml haar cascade file
 
+windowSize_mobile = (440, 792)
+
 if not os.path.isfile("features.npy"):
     featuresNp = np.empty(0, int) # arrays are saved as integers
     np.save('features.npy', featuresNp)
@@ -27,7 +29,7 @@ serverBaseURL = "http://nea-env.eba-6tgviyyc.eu-west-2.elasticbeanstalk.com/"  #
 
 class buttonPressed():
     def __init__(self):
-        self.accountID = "CYxBRru8w4euMX1cPwgoZatC2LXdNzWjSnPZgdwpuUX="
+        self.accountID = "MzVmXPjQXsIBouwmHM2ISwsJx0SB4UTncAVjnvnKcmI="
         with open('data.json') as jsonFile:
             self.data = json.load(jsonFile)
         if self.accountID not in self.data: # if data for account not yet stored
@@ -64,6 +66,7 @@ class buttonPressed():
             self.img_path = ("Photos/Visitor/frame0.png")
             cv.imwrite(self.img_path, img)  # save frame as JPEG file
         self.visitID = self.create_visitID()
+        self.formatImage()
         self.uploadAWS_image(Bucket="nea-visitor-log", Key = self.visitID)
         if imageCaptured == True: # if a viable image of the visitor has been captured
             self.facialRecognition() # run facial recognition algorithm
@@ -163,6 +166,24 @@ class buttonPressed():
         self.data_knownFaces = {"faceID": self.faceID, "faceName": "", "accountID": self.accountID}
         requests.post(serverBaseURL + "/update_knownFaces", self.data_knownFaces)
         return
+
+    def formatImage(self):
+        visitorImage = cv.imread(self.img_path)
+        visitorImage_cropped_w = round(int(windowSize_mobile[0]) * 0.82)
+        visitorImage_cropped_h = round(int(windowSize_mobile[1]) * 0.47)
+        scaleFactor = visitorImage_cropped_h / visitorImage.shape[0]
+        visitorImage = cv.resize(visitorImage,
+                                 (int(visitorImage.shape[1] * scaleFactor), int(visitorImage.shape[0] * scaleFactor)),
+                                 interpolation=cv.INTER_AREA)
+        gray = cv.cvtColor(visitorImage, cv.COLOR_BGR2GRAY)
+        face = haarCascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4)
+        for (x, y, w, h) in face:
+            visitorImage_centre = (x + (w // 2), y + (h // 2))
+        visitorImage_x = visitorImage_centre[
+                             0] - visitorImage_cropped_w // 2  # floored division for pixels as must be integer
+        visitorImage_cropped = visitorImage[0:visitorImage.shape[1],
+                               visitorImage_x:visitorImage_x + visitorImage_cropped_h]
+        cv.imwrite(self.img_path, visitorImage_cropped)
 
     def uploadAWS_image(self, **kwargs):
         fernet = Fernet(self.accountID.encode()) # instantiate Fernet class with users accountID as the key
