@@ -14,6 +14,18 @@ from kivy.animation import Animation
 from kivy.storage.jsonstore import JsonStore
 from os.path import join
 import os
+import re
+import random
+import string
+import requests
+import hashlib
+import threading
+import time
+import math
+import wave
+import paho.mqtt.client as mqtt
+#from audiostream import get_input
+import pickle
 
 # import pyaudio
 # import wave
@@ -62,20 +74,6 @@ import os
 # wf.setframerate(44100)
 # wf.writeframes(b''.join(frames))
 # wf.close()
-import re
-import random
-import string
-import requests
-import hashlib
-import threading
-import time
-import math
-import wave
-import paho.mqtt.client as mqtt
-#from audiostream import get_input
-import pickle
-import cv2 as cv
-
 
 
 
@@ -869,15 +867,15 @@ def update_knownFaces(faceID):
     requests.post(serverBaseURL + "/update_knownFaces", data_knownFaces)
 
 def display_visitorImage(visitID):
-    downloadData = {"bucketName": "nea-visitor-log","s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
-    response = requests.post(serverBaseURL + "/downloadS3", downloadData)
-    visitorImage = response.content
-    f = open('visitorImage.png', 'wb')
-    f.write(visitorImage)
-    f.close()
+    # downloadData = {"bucketName": "nea-visitor-log","s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
+    # response = requests.post(serverBaseURL + "/downloadS3", downloadData)
+    # visitorImage = response.content
+    # f = open('visitorImage.png', 'wb')
+    # f.write(visitorImage)
+    # f.close()
     MDApp.get_running_app().manager.current = "VisitorImage"
 
-    i = AsyncImage(source='visitorImage.png')
+    i = AsyncImage(source='visitorImage.png',pos_hint = {"center_x":0.5, "center_y":0.53})
     MDApp.get_running_app().manager.get_screen('VisitorImage').ids.test.add_widget(i)
 
     #MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.source = "visitorImage.png" # access ids for screen 'VisitorImage' from outside class to set source of visitorImage ID to path to image of visitor in mobile app
