@@ -121,9 +121,8 @@ class Launch(Screen, MDApp):
             client.on_connect = on_connect  # creates callback for successful connection with broker
             client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
             client.loop_start()  # creates thread which runs parallel to main thread
-            display_visitorImage("hh")
-            #self.manager.transition = NoTransition()
-            #self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
+            self.manager.transition = NoTransition()
+            self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
 
 
         elif self.initialUse == "True":
