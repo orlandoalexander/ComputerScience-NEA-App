@@ -116,15 +116,15 @@ class Launch(Screen, MDApp):
 
         if self.loggedIn == "True":
             self.accountID = jsonStore.get("localData")["accountID"]
-            print(self.accountID)
             # connect to MQTT broker to receive messages when visitor presses doorbell as already logged in
             client = mqtt.Client()
             client.username_pw_set(username="yrczhohs", password="qPSwbxPDQHEI")
             client.on_connect = on_connect  # creates callback for successful connection with broker
             client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
             client.loop_start()  # creates thread which runs parallel to main thread
-            self.manager.transition = NoTransition()
-            self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
+            display_visitorImage("h")
+            #self.manager.transition = NoTransition()
+            #self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
 
 
         elif self.initialUse == "True":
@@ -827,6 +827,7 @@ class MessageResponses_createText(MessageResponses_review, Screen, MDApp):
                               d=0.03)  # end properties of the snackbar animation's closing motion
         animation.start(self.ids.snackbar)  # executes the closing animation
 
+from kivy.uix.image import AsyncImage
 
 class VisitorImage(Screen, MDApp):
     pass
@@ -874,9 +875,13 @@ def display_visitorImage(visitID):
     f = open('visitorImage.png', 'wb')
     f.write(visitorImage)
     f.close()
-
     MDApp.get_running_app().manager.current = "VisitorImage"
-    MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.source = 'visitorImage.png' # access ids for screen 'VisitorImage' from outside class to set source of visitorImage ID to path to image of visitor in mobile app
+
+    i = AsyncImage(source='visitorImage.png')
+    MDApp.get_running_app().manager.get_screen('VisitorImage').ids.test.add_widget(i)
+
+    #MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.source = "visitorImage.png" # access ids for screen 'VisitorImage' from outside class to set source of visitorImage ID to path to image of visitor in mobile app
+
 
 
 

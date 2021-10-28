@@ -707,8 +707,9 @@ WindowManager: #initiates and orders all screens/classes
             allow_stretch: True #allows image to be stretched so that it fills the screen
             keep_ratio: False #allows image proportions to be altered so that it fills the screen
 
-        Image:
-            id: visitorImage #unique identifier for this specific image
+
+        FloatLayout:
+            id:test
             size: self.size #sets image to same size as screen
             pos_hint: {"center_x": 0.5, "center_y":0.53}
 
