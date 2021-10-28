@@ -13,7 +13,8 @@ from kivy.core.window import Window
 from kivy.animation import Animation
 from kivy.storage.jsonstore import JsonStore
 from os.path import join
-import os#
+import os
+
 # import pyaudio
 # import wave
 #
