@@ -28,7 +28,8 @@ serverBaseURL = "http://nea-env.eba-6tgviyyc.eu-west-2.elasticbeanstalk.com/"  #
 
 class buttonPressed():
     def __init__(self):
-        self.accountID = "CYxBRru8w4euMX1cPwgoZatC2LXdNzWjSnPZgdwpuUX="
+        self.accountID = "MzVmXPjQXsIBouwmHM2ISwsJx0SB4UTncAVjnvnKcmI="
+        self.publish_message_ring()
         with open('data.json') as jsonFile:
             self.data = json.load(jsonFile)
         if self.accountID not in self.data: # if data for account not yet stored
@@ -38,37 +39,32 @@ class buttonPressed():
 
 
     def captureImage(self):
-        # self.videoCapture = cv.VideoCapture(0)
-        # counter = 0
-        # flag = 0
-        # imageCaptured = False
-        # self.blurFactor = []
-        # while flag < 10:
-        #     success, img = self.videoCapture.read()
-        #     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        #     faceDetect = haarCascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4)  # returns rectangular coordinates of a face.
-        #     # scaleFactor is the percentage by which the image is resized on each iteration of the algorithm to attempt to detect a face in the image, as the face size used in the haar cascade xml is constant, but face sizes in the test image may vary. A small percentage value (i.e. 1.05 which would reduce image size by 5% on each iteration) would mean there is a small step for each resizing, so there is a greater chance of correctly detecting all the faces in the image, although it will be slower than using a larger scale factor
-        #     # minNeighbours specifies how many neighbours each candidate rectangle should have to retain it. In other words, the minimum number of positive rectangles (detect facial features) that need to be adjacent to a positive rectangle in order for it to be considered actually positive. A higher value of minNeighbours will result in less detections but with high quality - somewhere between 3-6
-        #     blurFactor = cv.Laplacian(img, cv.CV_64F).var()# Laplacian operator calculates the gradient change values in an image (i.e. transitions from black to white in greyscale image), so it is used for edge detection. Here, the variance of this operator on each image is returned; if an image contains high variance then there is a wide spread of responses, both edge-like and non-edge like, which is representative of a normal, in-focus image. But if there is very low variance, then there is a tiny spread of responses, indicating there are very little edges in the image, which is typical of a blurry image
-        #     num_faceDetect = len(faceDetect) # finds number of faces detected in image
-        #     if num_faceDetect >=1 and blurFactor >= 50 and flag > 0: # if at least 1 face has been detected and image isn't blurry, save the image
-        #         cv.imwrite("Photos/Visitor/frame%s.png" % counter, img)  # save frame as JPEG file
-        #         self.blurFactor.append((counter, blurFactor))
-        #         imageCaptured = True
-        #         counter +=1
-        #     flag +=1
-        # if imageCaptured == True:
-        #     self.facialRecognition_image = max(self.blurFactor, key=lambda image: image[1]) # lambda function is an anonymous/nameless function which returns the second element in the tuple for each element in the list, as the second element is the variance of the gradient changes (i.e. number of edges) in each image. Therefore, the max operator is used to find the image with the highest variance of gradient changes as this will be the least blurry image and so most suitable to apply facial recognition to.
-        #     self.img_path = ("Photos/Visitor/frame{}.png").format(str(self.facialRecognition_image[0]))
-        # else:
-        #     success, img = self.videoCapture.read()
-        #     self.img_path = ("Photos/Visitor/frame0.png")
-        #     cv.imwrite(self.img_path, img)  # save frame as JPEG file
-        imageCaptured = True
-        self.img_path = "visitorImage.png"
-
-
-
+        self.videoCapture = cv.VideoCapture(0)
+        counter = 0
+        flag = 0
+        imageCaptured = False
+        self.blurFactor = []
+        while flag < 10:
+            success, img = self.videoCapture.read()
+            gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+            faceDetect = haarCascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=4)  # returns rectangular coordinates of a face.
+            # scaleFactor is the percentage by which the image is resized on each iteration of the algorithm to attempt to detect a face in the image, as the face size used in the haar cascade xml is constant, but face sizes in the test image may vary. A small percentage value (i.e. 1.05 which would reduce image size by 5% on each iteration) would mean there is a small step for each resizing, so there is a greater chance of correctly detecting all the faces in the image, although it will be slower than using a larger scale factor
+            # minNeighbours specifies how many neighbours each candidate rectangle should have to retain it. In other words, the minimum number of positive rectangles (detect facial features) that need to be adjacent to a positive rectangle in order for it to be considered actually positive. A higher value of minNeighbours will result in less detections but with high quality - somewhere between 3-6
+            blurFactor = cv.Laplacian(img, cv.CV_64F).var()# Laplacian operator calculates the gradient change values in an image (i.e. transitions from black to white in greyscale image), so it is used for edge detection. Here, the variance of this operator on each image is returned; if an image contains high variance then there is a wide spread of responses, both edge-like and non-edge like, which is representative of a normal, in-focus image. But if there is very low variance, then there is a tiny spread of responses, indicating there are very little edges in the image, which is typical of a blurry image
+            num_faceDetect = len(faceDetect) # finds number of faces detected in image
+            if num_faceDetect >=1 and blurFactor >= 50 and flag > 0: # if at least 1 face has been detected and image isn't blurry, save the image
+                cv.imwrite("Photos/Visitor/frame%s.png" % counter, img)  # save frame as JPEG file
+                self.blurFactor.append((counter, blurFactor))
+                imageCaptured = True
+                counter +=1
+            flag +=1
+        if imageCaptured == True:
+            self.facialRecognition_image = max(self.blurFactor, key=lambda image: image[1]) # lambda function is an anonymous/nameless function which returns the second element in the tuple for each element in the list, as the second element is the variance of the gradient changes (i.e. number of edges) in each image. Therefore, the max operator is used to find the image with the highest variance of gradient changes as this will be the least blurry image and so most suitable to apply facial recognition to.
+            self.img_path = ("Photos/Visitor/frame{}.png").format(str(self.facialRecognition_image[0]))
+        else:
+            success, img = self.videoCapture.read()
+            self.img_path = ("Photos/Visitor/frame0.png")
+            cv.imwrite(self.img_path, img)  # save frame as JPEG file
         self.visitID = self.create_visitID()
         self.formatImage()
         self.uploadAWS_image(Bucket="nea-visitor-log", Key = self.visitID)
@@ -115,8 +111,8 @@ class buttonPressed():
         self.data[self.accountID]["faceIDs"] = self.faceIDs
         with open('data.json', 'w') as f:
             json.dump(self.data, f)
-        #self.thread_updateTraining = threading.Thread(target=self.updateTraining, args=(), daemon=False)
-        #self.thread_updateTraining.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
+        self.thread_updateTraining = threading.Thread(target=self.updateTraining, args=(), daemon=False)
+        self.thread_updateTraining.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
 
     def updateTraining(self):
         featuresNp = np.load('features.npy',allow_pickle = True) # opens numpy file storing the tagged data for the known faces as list
@@ -198,10 +194,14 @@ class buttonPressed():
         s3 = boto3.client("s3", aws_access_key_id=accessKey, aws_secret_access_key=secretKey)  # initialises a connection to the S3 client on AWS using the 'accessKey' and 'secretKey' sent to the API
         s3.upload_file(Filename=self.img_path, Bucket=kwargs["Bucket"], Key=kwargs["Key"])  # uploads the txt file to the S3 bucket called 'nea-audio-messages'. The name of the txt file when it is stored on S3 is the 'messageID' of the audio message which is being stored as a txt file.
 
+    def publish_message_ring(self):
+        client.publish("ring/{}".format(self.accountID))
+        return
 
     def publish_message_visitor(self):
         client.publish("visit/{}".format(self.accountID), "{}".format(str(self.visitID)))
         return
+
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0: # if connection is successful
