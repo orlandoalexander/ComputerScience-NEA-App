@@ -23,8 +23,10 @@ import threading
 import time
 import math
 import wave
-import paho.mqtt.client as mqtt
-from audiostream import get_input
+from pyobjus.dylib_manager import make_dylib, load_dylib
+from pyobjus import autoclass, objc_str
+
+#from audiostream import get_input
 import pickle
 
 
@@ -77,7 +79,6 @@ import pickle
 # wf.close()
 
 
-
 Window.size = (470, 850)
 
 
@@ -96,19 +97,23 @@ class Launch(Screen, MDApp):
     def __init__(self, **kw):
         super().__init__(**kw)
         global jsonFilename, jsonStore
-        jsonFilename = join(MDApp.get_running_app().user_data_dir,
-                            "jsonStore.json")# if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
-        # the 'join' class is used to create a single path name to the new file "jsonStore.json"
-
-        jsonStore = JsonStore(
-            jsonFilename)# wraps the filename as a json object to store data locally on the mobile phone
-        if not jsonStore.exists("localData"):
-            jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "")
-        self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
-
-        self.loggedIn = jsonStore.get("localData")["loggedIn"]
-        Clock.schedule_once(self.finishInitialising)# Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisationas the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
-
+        MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
+        self.mqtt = MQTTSessionDelegate.alloc().init()
+        thread = threading.Thread(target = self.visitThread(), args = ())
+        thread.start()
+        # jsonFilename = join(MDApp.get_running_app().user_data_dir,
+        #                     "jsonStore.json")# if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
+        # # the 'join' class is used to create a single path name to the new file "jsonStore.json"
+        #
+        # jsonStore = JsonStore(
+        #     jsonFilename)# wraps the filename as a json object to store data locally on the mobile phone
+        # if not jsonStore.exists("localData"):
+        #     jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "")
+        # self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
+        #
+        # self.loggedIn = jsonStore.get("localData")["loggedIn"]
+        # Clock.schedule_once(self.finishInitialising)# Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisationas the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
+        #
 
     def finishInitialising(self, dt):
         # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
@@ -132,6 +137,32 @@ class Launch(Screen, MDApp):
             self.manager.transition = NoTransition()
             self.manager.current = "SignIn"
 
+
+    def visitThread(self):
+        while True:
+            self.mqtt.connect()
+            if self.mqtt.messageReceived == 1:
+                visitID = str(self.mqtt.messageData.UTF8String())
+                print(visitID)
+                res = None
+                while res == None:  # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
+                    res = requests.post(serverBaseURL + "/view_visitorLog", visitID)
+                res = res.json()
+                faceID = res[1]
+                confidence = res[2]
+                data_faceID = {"faceID": str(faceID)}
+                faceName = None
+                while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
+                    faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
+                if faceName == "":
+                    update_knownFaces(faceID)
+                else:
+                    print("Visitor is " + faceName + " with a confidence of " + str(confidence))
+                display_visitorImage(visitID, faceName)
+
+                time.sleep(2)
+            else:
+                time.sleep(2)
 
 class SignUp(Screen, MDApp):
     # 'SignUp' class allows user to create an account
@@ -843,23 +874,7 @@ class MyApp(MDApp):
         layout = Builder.load_file("layout.kv")  # loads the 'layout.kv' file
         return layout
 
-def on_message_visit(client, userdata, msg):
-    visitID = msg.payload.decode()
-    data_visitID = {"visitID": str(visitID)}
-    res = None
-    while res == None: # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-        res = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
-    faceID = res[1]
-    confidence = res[2]
-    data_faceID = {"faceID": str(faceID)}
-    faceName = None
-    while faceName == None: # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-        faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
-    if faceName == "":
-        update_knownFaces(faceID)
-    else:
-        print("Visitor is "+faceName+" with a confidence of "+str(confidence))
-    display_visitorImage(visitID, faceName)
+
 
 def update_knownFaces(faceID):
     faceName = input("Visitor couldn't be recognised. Enter name: ")
