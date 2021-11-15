@@ -30,58 +30,6 @@ from pyobjus import autoclass, objc_str
 import pickle
 
 
-# import pyaudio
-# import wave
-#
-# chunk = 1024  # Record in chunks of 1024 samples
-# sample_format = pyaudio.paInt16  # 16 bits per sample
-# channels = 2
-# fs = 44100  # Record at 44100 samples per second
-# seconds = 3
-# filename = "output.wav"
-#
-# p = pyaudio.PyAudio()  # Create an interface to PortAudio
-#
-# print('Recording')
-#
-# stream = p.open(format=sample_format,
-#                 channels=channels,
-#                 rate=fs,
-#                 frames_per_buffer=chunk,
-#                 input=True)
-#
-# frames = []  # Initialize array to store frames
-#
-# # Store data in chunks for 3 seconds
-# for i in range(0, int(fs / chunk * seconds)):
-#     data = stream.read(chunk)
-#     frames.append(data)
-#
-# # Stop and close the stream
-# stream.stop_stream()
-# stream.close()
-# # Terminate the PortAudio interface
-# p.terminate()
-# print('Finished recording')
-#
-# with open ("sampleAudio.pkl", "wb") as file:
-#     pickle.dump(frames, file)
-#     file.close()
-#
-# with open ("sampleAudio.pkl", "rb") as file:
-#     frames = pickle.load(file)
-
-# wf = wave.open("test.wav", 'wb')
-# wf.setnchannels(2)
-# wf.setsampwidth(2)
-# wf.setframerate(44100)
-# wf.writeframes(b''.join(frames))
-# wf.close()
-
-
-Window.size = (470, 850)
-
-
 serverBaseURL = "http://nea-env.eba-6tgviyyc.eu-west-2.elasticbeanstalk.com/"  # base URL to access AWS elastic beanstalk environment
 
 
@@ -101,19 +49,18 @@ class Launch(Screen, MDApp):
         self.mqtt = MQTTSessionDelegate.alloc().init()
         thread = threading.Thread(target = self.visitThread(), args = ())
         thread.start()
-        # jsonFilename = join(MDApp.get_running_app().user_data_dir,
-        #                     "jsonStore.json")# if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
-        # # the 'join' class is used to create a single path name to the new file "jsonStore.json"
-        #
-        # jsonStore = JsonStore(
-        #     jsonFilename)# wraps the filename as a json object to store data locally on the mobile phone
-        # if not jsonStore.exists("localData"):
-        #     jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "")
-        # self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
-        #
-        # self.loggedIn = jsonStore.get("localData")["loggedIn"]
-        # Clock.schedule_once(self.finishInitialising)# Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisationas the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
-        #
+        jsonFilename = join(MDApp.get_running_app().user_data_dir, "jsonStore.json")# if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
+        # the 'join' class is used to create a single path name to the new file "jsonStore.json"
+
+        jsonStore = JsonStore(
+            jsonFilename)# wraps the filename as a json object to store data locally on the mobile phone
+        if not jsonStore.exists("localData"):
+            jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "")
+        self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
+
+        self.loggedIn = jsonStore.get("localData")["loggedIn"]
+        Clock.schedule_once(self.finishInitialising)# Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisationas the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
+
 
     def finishInitialising(self, dt):
         # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
@@ -121,11 +68,6 @@ class Launch(Screen, MDApp):
         if self.loggedIn == "True":
             self.accountID = jsonStore.get("localData")["accountID"]
             # connect to MQTT broker to receive messages when visitor presses doorbell as already logged in
-            client = mqtt.Client()
-            client.username_pw_set(username="yrczhohs", password="qPSwbxPDQHEI")
-            client.on_connect = on_connect  # creates callback for successful connection with broker
-            client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
-            client.loop_start()  # creates thread which runs parallel to main thread
             self.manager.transition = NoTransition()
             self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
 
@@ -143,7 +85,6 @@ class Launch(Screen, MDApp):
             self.mqtt.connect()
             if self.mqtt.messageReceived == 1:
                 visitID = str(self.mqtt.messageData.UTF8String())
-                print(visitID)
                 res = None
                 while res == None:  # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
                     res = requests.post(serverBaseURL + "/view_visitorLog", visitID)
@@ -159,10 +100,8 @@ class Launch(Screen, MDApp):
                 else:
                     print("Visitor is " + faceName + " with a confidence of " + str(confidence))
                 display_visitorImage(visitID, faceName)
-
-                time.sleep(2)
             else:
-                time.sleep(2)
+                time.sleep(1)
 
 class SignUp(Screen, MDApp):
     # 'SignUp' class allows user to create an account

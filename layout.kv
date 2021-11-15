@@ -1,4 +1,4 @@
-
+#: import NoTransition kivy.uix.screenmanager.NoTransition
 WindowManager: #initiates and orders all screens/classes
     Launch:
     SignUp:
@@ -9,6 +9,7 @@ WindowManager: #initiates and orders all screens/classes
     MessageResponses_createAudio:
     MessageResponses_viewAudio:
     MessageResponses_createText:
+    RingAlert:
     VisitorImage:
 
 
@@ -294,6 +295,14 @@ WindowManager: #initiates and orders all screens/classes
             keep_ratio: False #allows image proportions to be altered so that it fills the screen
 
         Image:
+            id: previewMessages #unique identifier for this specific image
+            source: "SmartBell_previewMessages.png"
+            size: self.size #sets image to same size as screen
+            allow_stretch: True #allows image to be stretched so that it fills the screen
+            keep_ratio: False #allows image proportions to be altered so that it fills the screen
+            opacity: 0
+
+        Image:
             id: pulsingCircle #unique identifier for this specific image
             source: "SmartBell_pulsingCircle.zip"
             anim_delay: 0.075
@@ -313,7 +322,10 @@ WindowManager: #initiates and orders all screens/classes
             id: button_homepage #unique identifier for this specific button
             pos_hint: {"center_x": 0.52, "center_y": 0.07}
             size_hint: 0.2,0.1
-            on_press: root.manager.current = "Homepage"
+            on_press:
+                if root.previewMessages == False: root.manager.current = "Homepage"
+                elif root.previewMessages == True: root.cancelRespond_dialog()
+
 
         Button:
             id: button_forward #unique identifier for this specific button
@@ -333,8 +345,10 @@ WindowManager: #initiates and orders all screens/classes
             pos_hint: {"x": 0.14, "y": 0.52}
             disabled: True
             on_press:
-                if audioMessage_name1.text != "": root.openMessage(1)
-                elif audioMessage_name1.text == "":  root.openTarget() #opens the target view
+                if root.previewMessages == True and audioMessage_name1.text != "": root.respondAudio_preview(1)
+                elif root.previewMessages == True and audioMessage_name1.text == "":  root.respondAudio_new()
+                elif root.previewMessages == False and audioMessage_name1.text != "": root.openMessage(1)
+                elif root.previewMessages == False and audioMessage_name1.text == "":  root.openTarget() #opens the target view
 
         Button:
             id: button_audioMessage_2
@@ -342,8 +356,10 @@ WindowManager: #initiates and orders all screens/classes
             pos_hint: {"x": 0.62, "y": 0.52}
             disabled: True
             on_press:
-                if audioMessage_name2.text != "": root.openMessage(2)
-                elif audioMessage_name2.text == "": root.manager.current = "MessageResponses_create" # switches to 'MessageResponses_create' screen
+                if root.previewMessages == True and audioMessage_name2.text != "": root.respondAudio_preview(2)
+                elif root.previewMessages == True and audioMessage_name2.text == "":  root.respondAudio_new()
+                elif root.previewMessages == False and audioMessage_name2.text != "": root.openMessage(2)
+                elif root.previewMessages == False and audioMessage_name2.text == "":  root.openTarget() #opens the target view
 
         Button:
             id: button_audioMessage_3
@@ -351,16 +367,20 @@ WindowManager: #initiates and orders all screens/classes
             pos_hint: {"x": 0.14, "y": 0.26}
             disabled: True
             on_press:
-                if audioMessage_name3.text != "": root.openMessage(3)
-                elif audioMessage_name3.text == "": root.manager.current = "MessageResponses_create" # switches to 'MessageResponses_create' screen
+                if root.previewMessages == True and audioMessage_name3.text != "": root.respondAudio_preview(3)
+                elif root.previewMessages == True and audioMessage_name3.text == "":  root.respondAudio_new()
+                elif root.previewMessages == False and audioMessage_name3.text != "": root.openMessage(3)
+                elif root.previewMessages == False and audioMessage_name3.text == "":  root.openTarget() #opens the target view
+
 
         Button:
             id: button_plusIcon #unique identifier for this specific button
             size_hint: 0.23,0.12
             pos_hint: {"x": 0.64, "y": 0.26}
             disabled: True #button is disabled so cannot be tapped
-            on_press: root.manager.current = "MessageResponses_create" # switches to 'MessageResponses_create' screen
-
+            on_press:
+                if root.previewMessages == False: root.manager.current = "MessageResponses_create" # switches to 'MessageResponses_create' screen
+                if root.previewMessages == True: root.respondAudio_new()
 
         Image:
             id: plusIcon #unique identifier for this specific image
@@ -374,6 +394,7 @@ WindowManager: #initiates and orders all screens/classes
             size_hint: 0.19,0.19
             pos_hint: {"x":0.44,"y": 0.13}
             opacity: 0
+
 
         Label:
             id: audioMessage_name1 #unique identifier for this specific label
@@ -694,6 +715,28 @@ WindowManager: #initiates and orders all screens/classes
             size_hint: 1, 0.13
             pos_hint: {"center_x": 0.5, "top":0}
 
+<RingAlert>:
+
+    name: "RingAlert"
+
+    FloatLayout:
+        Image:
+            id: ringAlert_background
+            source: "SmartBell_ringAlert_background.zip"
+            size: self.size #sets image to same size as screen
+            allow_stretch: True #allows image to be stretched so that it fills the screen
+            keep_ratio: False #allows image proportions to be altered so that it fills the screen
+            anim_delay: 0.3
+            anim_loop: 0
+
+        Image:
+            id: ringAlert_background
+            source: "SmartBell_ringAlert_button.zip"
+            pos_hint: {"center_x": 0.502, "center_y": 0.202}
+            size_hint: 0.77,0.77
+            anim_delay: 0.04
+            anim_loop: 0
+
 
 <VisitorImage>:
 
@@ -726,6 +769,7 @@ WindowManager: #initiates and orders all screens/classes
 
         Label:
             id: visitorName
+            text: "Loading..."
             text_size: self.size # dimensions for text
             font_size: 20 # font size for text
             halign: 'center' # alignment of text
@@ -740,6 +784,20 @@ WindowManager: #initiates and orders all screens/classes
             canvas.after:
                 PopMatrix
 
+        Button:
+            id: button_homepage #unique identifier for this specific button
+            pos_hint: {"center_x": 0.52, "center_y": 0.07}
+            size_hint: 0.2,0.1
+            on_press: root.manager.current = "Homepage"
+
+        Button:
+            id: button_respond #unique identifier for this specific button
+            pos_hint: {"center_x": 0.52, "center_y": 0.2}
+            size_hint: 0.4,0.1
+            on_press:
+                root.manager.transition = NoTransition()
+                root.manager.current = "MessageResponses_add"
+                root.manager.current_screen.respondAudio_select()
 
 
 
@@ -758,10 +816,6 @@ WindowManager: #initiates and orders all screens/classes
         color_mode: 'custom'
         line_color_normal: [202/255,154/255,254/255,1] #color of the line around the text field in its normal state
         line_color_focus: [202/255,154/255,254/255,1] #color of the line around the text field when the user attempts to close the dialog box before entering a name for the audio message
-
-
-
-
 
 
 
