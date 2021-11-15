@@ -3,7 +3,6 @@ from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.taptargetview import MDTapTargetView
 from kivymd.uix.button import MDFlatButton, MDRaisedButton
-from kivy.uix.image import AsyncImage
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.core.audio import SoundLoader
@@ -25,7 +24,7 @@ import time
 import math
 import wave
 import paho.mqtt.client as mqtt
-#from audiostream import get_input
+from audiostream import get_input
 import pickle
 
 
