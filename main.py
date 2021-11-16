@@ -3,6 +3,7 @@ from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.taptargetview import MDTapTargetView
 from kivymd.uix.button import MDFlatButton, MDRaisedButton
+from kivy.uix.image import AsyncImage
 from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.core.audio import SoundLoader
@@ -53,60 +54,31 @@ class Launch(Screen, MDApp):
             jsonFilename)# wraps the filename as a json object to store data locally on the mobile phone
         if not jsonStore.exists("localData"):
             jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "")
+
         self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
         self.loggedIn = jsonStore.get("localData")["loggedIn"]
-        MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
-        self.mqtt = MQTTSessionDelegate.alloc().init()
-        self.mqtt.connect() # connect to to mqtt broker
-        thread = Thread(target = self.visitThread)
-        thread.setDaemon(True)
-        thread.start()
         Clock.schedule_once(self.finishInitialising)# Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisationas the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
 
 
     def finishInitialising(self, dt):
         # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
 
+        self.loggedIn = "True"
+
         if self.loggedIn == "True":
             self.accountID = jsonStore.get("localData")["accountID"]
+            createThreads_MQTT(self.accountID)
             # connect to MQTT broker to receive messages when visitor presses doorbell as already logged in
             self.manager.transition = NoTransition()
             self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
 
-
         elif self.initialUse == "True":
             self.manager.transition = NoTransition()
             self.manager.current = "SignUp"
+
         else:
             self.manager.transition = NoTransition()
             self.manager.current = "SignIn"
-
-
-    def visitThread(self):
-        while True:
-            if self.mqtt.messageReceived == 1:
-                visitID = str(self.mqtt.messageData.UTF8String())
-                print("Visitor!")
-                res = None
-                while res == None:  # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-                    res = requests.post(serverBaseURL + "/view_visitorLog", visitID)
-                    print(res)
-                res = res.json()
-                faceID = res[1]
-                confidence = res[2]
-                data_faceID = {"faceID": str(faceID)}
-                faceName = None
-                while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-                    faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
-                if faceName == "":
-                    update_knownFaces(faceID)
-                else:
-                    print("Visitor is " + faceName + " with a confidence of " + str(confidence))
-                display_visitorImage(visitID, faceName)
-            else:
-                time.sleep(1)
-
-
 
 class SignUp(Screen, MDApp):
     # 'SignUp' class allows user to create an account
@@ -204,11 +176,8 @@ class SignUp(Screen, MDApp):
                                    loggedIn="True", accountID = self.accountID) # updates json object to reflect that user has successfully created an account
 
                 # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in and have unique accountID
-                client = mqtt.Client()
-                client.username_pw_set(username="yrczhohs", password="qPSwbxPDQHEI")
-                client.on_connect = on_connect  # creates callback for successful connection with broker
-                client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
-                client.loop_start()  # creates thread which runs parallel to main thread
+
+                # start MQTT loop in objective c here
 
                 if self.initialUse == "True":  # if the app is running for the first time on the user's mobile
                     self.manager.transition = NoTransition()  # creates a cut transition type
@@ -820,38 +789,83 @@ class MyApp(MDApp):
         return layout
 
 
+def createThreads_MQTT(accountID):
+    MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
+    mqtt = MQTTSessionDelegate.alloc().init()
+    accountID = "MzVmXPjQXsIBouwmHM2ISwsJx0SB4UTncAVjnvnKcmI="
+    mqtt.ringTopic = f"ring/{accountID}"
+    mqtt.visitTopic = f"visit/{accountID}"
+    mqtt.connect()  # connect to to mqtt broker
+    # mqtt must be instantiated outside of thread otherwise connection is unnsuccessful
+    thread_ring = Thread(target=ringThread, args=(mqtt,))
+    thread_ring.setDaemon(True)
+    thread_ring.start()
+
+    thread_visit = Thread(target=visitThread, args=(mqtt,))
+    thread_visit.setDaemon(True)
+    thread_visit.start()
+
+
+def ringThread(mqtt):
+    while True:
+        if mqtt.messageReceived_ring == 1:
+            MDApp.get_running_app().manager.current = "RingAlert"
+            visitID = str(mqtt.messageData.UTF8String())
+            downloadData = {"bucketName": "nea-visitor-log",
+                            "s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
+            response_text = "error"
+            while response_text == "error":
+                response = requests.post(serverBaseURL + "/downloadS3", downloadData)
+                response_text = response.text
+            visitorImage_data = response.content
+            f = open(join(MDApp.get_running_app().user_data_dir, 'visitorImage.png'), 'wb')
+            f.write(visitorImage_data)
+            f.close()
+            MDApp.get_running_app().manager.current = "VisitorImage"
+            visitorImage = AsyncImage(source=join(MDApp.get_running_app().user_data_dir, 'visitorImage.png'),
+                                      pos_hint={"center_x": 0.5,
+                                                "center_y": 0.53})  # AsyncImage loads image as background thread
+            visitorImage.reload()  # reloads the image file to ensure the latest stored image is used
+            MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
+                visitorImage)  # accesses screen ids and adds the visitor image as a widget to a nested float layout
+        else:
+            time.sleep(1)
+
+
+def visitThread(mqtt):
+    while True:
+        if mqtt.messageReceived_visit == 1:
+            visitID = str(mqtt.messageData.UTF8String())
+            data_visitID = {"visitID": visitID}
+            response = None
+            while response == None:  # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
+                response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
+            faceID = response[1]
+            confidence = response[2]
+            print(confidence)
+            if confidence != "NO_FACE":  # confidence is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
+                data_faceID = {"faceID": str(faceID)}
+                faceName = None
+                while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
+                    faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
+                if faceName == "":
+                    faceName = update_knownFaces(faceID)
+                else:
+                    print("Visitor is " + faceName + " with a confidence of " + str(confidence))
+            else:
+                faceName = "No face identified"
+            MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorName.text = faceName
+        else:
+            time.sleep(1)
+
+
+
 
 def update_knownFaces(faceID):
     faceName = input("Visitor couldn't be recognised. Enter name: ")
     data_knownFaces = {"faceName": faceName, "faceID": faceID}
     requests.post(serverBaseURL + "/update_knownFaces", data_knownFaces)
 
-def display_visitorImage(visitID, faceName):
-    downloadData = {"bucketName": "nea-visitor-log","s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
-    response = requests.post(serverBaseURL + "/downloadS3", downloadData)
-    visitorImage_data = response.content
-    f = open(join(MDApp.get_running_app().user_data_dir,'visitorImage.png'), 'wb')
-    f.write(visitorImage_data)
-    f.close()
-    MDApp.get_running_app().manager.current = "VisitorImage"
-    visitorImage = AsyncImage(source=join(MDApp.get_running_app().user_data_dir,'visitorImage.png'),pos_hint = {"center_x":0.5, "center_y":0.53}) # AsyncImage loads image as background thread
-    visitorImage.reload() # reloads the image file to ensure the latest stored image is used
-    MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(visitorImage) # accesses screen ids and adds the visitor image as a widget to a nested float layout
-    MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorName.text = faceName
-
-
-
-
-def on_connect(client, userdata, flags, rc):
-    if rc == 0: # if connection is successful
-        accountID = jsonStore.get("localData")["accountID"]
-        client.subscribe("visit/{}".format(accountID))
-        client.message_callback_add("visit/{}".format(accountID), on_message_visit)
-    else:
-        # attempts to reconnect
-        client.on_connect = on_connect
-        client.username_pw_set(username="yrczhohs", password = "qPSwbxPDQHEI")
-        client.connect("hairdresser.cloudmqtt.com", 18973)
 
 
 if __name__ == "__main__":  # when the program is launched, if the name of the file is the main program (i.e. it is not a module being imported by another file) then this selection statement is True
