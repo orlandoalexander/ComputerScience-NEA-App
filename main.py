@@ -19,12 +19,13 @@ import random
 import string
 import requests
 import hashlib
-import threading
+from threading import Thread
 import time
 import math
 import wave
 from pyobjus.dylib_manager import make_dylib, load_dylib
 from pyobjus import autoclass, objc_str
+
 
 #from audiostream import get_input
 import pickle
@@ -45,10 +46,6 @@ class Launch(Screen, MDApp):
     def __init__(self, **kw):
         super().__init__(**kw)
         global jsonFilename, jsonStore
-        MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
-        self.mqtt = MQTTSessionDelegate.alloc().init()
-        thread = threading.Thread(target = self.visitThread(), args = ())
-        thread.start()
         jsonFilename = join(MDApp.get_running_app().user_data_dir, "jsonStore.json")# if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
         # the 'join' class is used to create a single path name to the new file "jsonStore.json"
 
@@ -57,8 +54,13 @@ class Launch(Screen, MDApp):
         if not jsonStore.exists("localData"):
             jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "")
         self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
-
         self.loggedIn = jsonStore.get("localData")["loggedIn"]
+        MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
+        self.mqtt = MQTTSessionDelegate.alloc().init()
+        self.mqtt.connect() # connect to to mqtt broker
+        thread = Thread(target = self.visitThread)
+        thread.setDaemon(True)
+        thread.start()
         Clock.schedule_once(self.finishInitialising)# Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisationas the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
 
 
@@ -82,12 +84,13 @@ class Launch(Screen, MDApp):
 
     def visitThread(self):
         while True:
-            self.mqtt.connect()
             if self.mqtt.messageReceived == 1:
                 visitID = str(self.mqtt.messageData.UTF8String())
+                print("Visitor!")
                 res = None
                 while res == None:  # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
                     res = requests.post(serverBaseURL + "/view_visitorLog", visitID)
+                    print(res)
                 res = res.json()
                 faceID = res[1]
                 confidence = res[2]
@@ -102,6 +105,8 @@ class Launch(Screen, MDApp):
                 display_visitorImage(visitID, faceName)
             else:
                 time.sleep(1)
+
+
 
 class SignUp(Screen, MDApp):
     # 'SignUp' class allows user to create an account
@@ -184,7 +189,7 @@ class SignUp(Screen, MDApp):
             self.ids.snackbar.text = "Account with this email address already exists. Login instead"  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
             self.ids.snackbar.font_size = 24
             self.openSnackbar()  # calls the method which creates the snackbar animation
-            self.thread_dismissSnackbar = threading.Thread(target=self.dismissSnackbar, args=(),daemon=False)  # initialises an instance of the 'threading.Thread()' method
+            self.thread_dismissSnackbar = Thread(target=self.dismissSnackbar, args=(),daemon=False)  # initialises an instance of the 'threading.Thread()' method
             self.thread_dismissSnackbar.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
         else:
             response = requests.post(serverBaseURL + "/updateUsers", self.dbData_update)  # sends post request to 'updateUsers' route on AWS server with user's inputted data to be stored in the database
@@ -192,7 +197,7 @@ class SignUp(Screen, MDApp):
                 self.ids.snackbar.text = "Error creating account. Please try again later" # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
                 self.ids.snackbar.font_size = 30
                 self.openSnackbar() # calls the method which creates the snackbar animation
-                self.thread_dismissSnackbar = threading.Thread(target=self.dismissSnackbar, args=(), daemon=False)  # initialises an instance of the 'threading.Thread()' method
+                self.thread_dismissSnackbar = Thread(target=self.dismissSnackbar, args=(), daemon=False)  # initialises an instance of the 'threading.Thread()' method
                 self.thread_dismissSnackbar.start() # starts the thread which will run in pseudo-parallel to the rest of the program
             else:
                 jsonStore.put("localData", initialUse=self.initialUse,
@@ -261,7 +266,7 @@ class SignIn(Screen, MDApp):
         response = requests.post(serverBaseURL + "/verifyUser", self.dbData_verify) # sends a post request to the 'verifyUser' route of the AWS server to validate the details (email and password) entered by the user
         if response.text == "none": # if the details inputted by the user don't match an existing account
             self.openSnackbar() # calls the method which creates the snackbar animation
-            self.thread_dismissSnackbar = threading.Thread(target=self.dismissSnackbar, args=(), daemon=False)  # initialises an instance of the 'threading.Thread()' method
+            self.thread_dismissSnackbar = Thread(target=self.dismissSnackbar, args=(), daemon=False)  # initialises an instance of the 'threading.Thread()' method
             self.thread_dismissSnackbar.start() # starts the thread which will run in pseudo-parallel to the rest of the program
         else:
             self.accountID = response.text # if the user inputs details which match an account stored in the MySQL database, their unique accountID is returned
@@ -300,7 +305,7 @@ class Homepage(Screen, MDApp):
 
     def darkenImage(self):
         # method which increases the opacity of an image
-        self.thread_lightenImage = threading.Thread(target=self.lightenImage, args=(),
+        self.thread_lightenImage = Thread(target=self.lightenImage, args=(),
                                                     daemon=False)  # initialises an instance of the 'threading.Thread()' method
         self.thread_lightenImage.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
         animation = Animation(opacity=0.7,
@@ -480,7 +485,7 @@ class MessageResponses_createAudio(Screen, MDApp):
         # method which begins the process of recording the user's audio message
 
         self.recordAudio = recordAudio() # instantiates the method which is used to control the recording of the user's audio message
-        self.recordAudio_thread = threading.Thread(target=self.recordAudio.start, args=(),daemon=False)  # initialises the instance of thread which is used to record the user's audio input
+        self.recordAudio_thread = Thread(target=self.recordAudio.start, args=(),daemon=False)  # initialises the instance of thread which is used to record the user's audio input
         self.ids.recordAudio.anim_loop = 0 # sets the number of loops of the gif to be played (which uses the zio file 'SmartBell_audioRecord_listening.zip') to infinite as the length of the user's audio message is indeterminate
         self.ids.recordAudio.source = self.recordAudio_listening # changes the source of the image with the id 'recordAudio'
         self.startTime = time.time()  # sets up timer to record how long button to record audio is held for
@@ -495,7 +500,7 @@ class MessageResponses_createAudio(Screen, MDApp):
             self.ids.snackbar.font_size = 36
             self.ids.snackbar.text = "Press and hold the microphone to speak"  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
             self.openSnackbar() # calls the method which opens the snackbar to indicate that the audio message recorded was too short
-            self.dismissSnackbar_thread = threading.Thread(target=self.dismissSnackbar, args=(),
+            self.dismissSnackbar_thread = Thread(target=self.dismissSnackbar, args=(),
                                                             daemon=False)  # initialises an instance of the thread which closes the snackbar after 3.5 seconds.
             self.dismissSnackbar_thread.start() # starts the thread 'self.dismissSnackbar_thread'
         else: # if the button to record audio is held for more than one second
@@ -514,7 +519,7 @@ class MessageResponses_createAudio(Screen, MDApp):
         self.ids.snackbar.font_size = 36
         self.ids.snackbar.text = "Press and hold the microphone to speak"  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
         self.openSnackbar()  # calls the method which opens the snackbar to indicate that the audio message recorded was too short
-        self.dismissSnackbar_thread = threading.Thread(target=self.dismissSnackbar, args=(),
+        self.dismissSnackbar_thread = Thread(target=self.dismissSnackbar, args=(),
                                                        daemon=False)  # initialises an instance of the thread which closes the snackbar after 3.5 seconds.
         self.dismissSnackbar_thread.start()  # starts the thread 'self.dismissSnackbar_thread'
 
@@ -737,7 +742,7 @@ class MessageResponses_viewAudio(MessageResponses_review, Screen, MDApp):
         self.messageFile_voice.play()
         self.ids.playbackAudio.source = self.playbackAudio_gif
         self.audioLength = self.messageFile_voice.length
-        self.thread_stopGif = threading.Thread(target=self.stopGif, args=(),
+        self.thread_stopGif = Thread(target=self.stopGif, args=(),
                                                daemon=False)  # initialises an instance of the 'threading.Thread()' method
         self.thread_stopGif.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
 
@@ -760,7 +765,7 @@ class MessageResponses_createText(MessageResponses_review, Screen, MDApp):
             self.ids.snackbar.font_size = 30
             self.ids.snackbar.text = "Sorry, the text you have entered is invalid!\nPlease make sure your message is between\n1 and 80 characters."  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
             self.openSnackbar()  # calls the method which opens the snackbar to indicate that the audio message recorded was too short
-            self.dismissSnackbar_thread = threading.Thread(target=self.dismissSnackbar, args=(),
+            self.dismissSnackbar_thread = Thread(target=self.dismissSnackbar, args=(),
                                                            daemon=False)  # initialises an instance of the thread which closes the snackbar after 3.5 seconds.
             self.dismissSnackbar_thread.start()  # starts the thread 'self.dismissSnackbar_thread'
         else:
@@ -795,11 +800,12 @@ class MessageResponses_createText(MessageResponses_review, Screen, MDApp):
                               d=0.03)  # end properties of the snackbar animation's closing motion
         animation.start(self.ids.snackbar)  # executes the closing animation
 
-from kivy.uix.image import AsyncImage
+
+class RingAlert(Screen, MDApp):
+    pass
 
 class VisitorImage(Screen, MDApp):
     pass
-
 
 
 class nameMessage_content(BoxLayout):
