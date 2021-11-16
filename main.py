@@ -831,7 +831,7 @@ def ringThread(mqtt):
         else:
             time.sleep(1)
 
-
+8gPxl74fDKsjdQIWmJf0GeUhb60YqrrvTDrEMZo7JJZ
 def visitThread(mqtt):
     while True:
         if mqtt.messageReceived_visit == 1:
