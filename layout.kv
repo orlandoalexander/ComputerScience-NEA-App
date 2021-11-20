@@ -314,7 +314,7 @@ WindowManager: #initiates and orders all screens/classes
         Button:
             id: button_continueIcon #unique identifier for this specific button
             disabled: True #button is disabled so cannot be tapped
-            size_hint: 0.23,0.23
+            size_hint: 0.23,0.1
             pos_hint: {"x":0.44,"y": 0.13}
             on_press: root.manager.current = "MessageResponses_create" # switches to 'MessageResponses_create' screen
 
@@ -325,7 +325,6 @@ WindowManager: #initiates and orders all screens/classes
             on_press:
                 if root.previewMessages == False: root.manager.current = "Homepage"
                 elif root.previewMessages == True: root.cancelRespond_dialog()
-
 
         Button:
             id: button_forward #unique identifier for this specific button
@@ -359,7 +358,7 @@ WindowManager: #initiates and orders all screens/classes
                 if root.previewMessages == True and audioMessage_name2.text != "": root.respondAudio_preview(2)
                 elif root.previewMessages == True and audioMessage_name2.text == "":  root.respondAudio_new()
                 elif root.previewMessages == False and audioMessage_name2.text != "": root.openMessage(2)
-                elif root.previewMessages == False and audioMessage_name2.text == "":  root.openTarget() #opens the target view
+                elif root.previewMessages == False and audioMessage_name2.text == "":  root.manager.current = "MessageResponses_create"
 
         Button:
             id: button_audioMessage_3
@@ -370,7 +369,7 @@ WindowManager: #initiates and orders all screens/classes
                 if root.previewMessages == True and audioMessage_name3.text != "": root.respondAudio_preview(3)
                 elif root.previewMessages == True and audioMessage_name3.text == "":  root.respondAudio_new()
                 elif root.previewMessages == False and audioMessage_name3.text != "": root.openMessage(3)
-                elif root.previewMessages == False and audioMessage_name3.text == "":  root.openTarget() #opens the target view
+                elif root.previewMessages == False and audioMessage_name3.text == "":  root.manager.current = "MessageResponses_create"
 
 
         Button:
@@ -392,7 +391,7 @@ WindowManager: #initiates and orders all screens/classes
             id: continueIcon #unique identifier for this specific image
             source: "continueIcon.png"
             size_hint: 0.19,0.19
-            pos_hint: {"x":0.44,"y": 0.13}
+            pos_hint: {"x":0.44,"y": 0.08}
             opacity: 0
 
 
@@ -492,7 +491,6 @@ WindowManager: #initiates and orders all screens/classes
             size_hint: 0.3,0.25
             pos_hint: {"center_x": 0.5, "center_y": 0.58}
             on_press:
-                recordAudio.source = root.recordAudio_loading #changes the image source for the ID 'recordAudio'
                 root.startRecording() #calls the method 'startRecording' from the parent class in the Python application
             on_release:
                 recordAudio.source = root.recordAudio_end #changes the image source for the ID 'recordAudio'
@@ -629,7 +627,7 @@ WindowManager: #initiates and orders all screens/classes
 
         MDTextField:
             id: textMessage #unique identifier for this specific textfield
-            hint_text: "Enter the text for this audio message" #hint text indicates what data the user should input into this text field
+            hint_text: "Enter the text for audio message" #hint text indicates what data the user should input into this text field
             #multiline: True
             #max_height: "100dp"
             size_hint_x: 0.765
@@ -638,27 +636,25 @@ WindowManager: #initiates and orders all screens/classes
         MDLabel:
             id: previousMessage_heading
             theme_text_color: "Custom"
-            font_size: 40
+            font_size: 27
             text_color: 1,1,1,1
             halign: "left" #horizontally align the text to the center of the label
             size_hint: 0.8, 0.3
-            pos_hint: {"center_x": 0.51, "center_y": 0.56} #position of label relative to screen
+            pos_hint: {"center_x": 0.53, "center_y": 0.54} #position of label relative to screen
 
         MDLabel:
+            id: previousMessage #unique identifier for this specific label
             canvas.before:
                 Color:
                     rgba: (1,1,1,1)
                 Line:
                     width: 0.7
-                    rectangle: (self.x-5, self.y-5, self.width+10, self.height+10)
-            id: previousMessage #unique identifier for this specific label
+                    rectangle: (self.x-5, self.y-5, self.width+5, self.height+5)
             theme_text_color: "Custom"
             text_color: 1,1,1,1
-            font_size: 36
-            #halign: "left" #horizontally align the text to the center of the label
-            #valign: "top"
+            font_size: 30
             size_hint: 0.76, 0.1
-            pos_hint: {"center_x": 0.5, "center_y": 0.45} #position of label relative to screen
+            pos_hint: {"center_x": 0.51, "center_y": 0.45} #position of label relative to screen
             opacity: 0
 
 
@@ -771,7 +767,7 @@ WindowManager: #initiates and orders all screens/classes
             id: visitorName
             text: "Loading..."
             text_size: self.size # dimensions for text
-            font_size: 20 # font size for text
+            font_size: 28 # font size for text
             halign: 'center' # alignment of text
             valign: 'middle'
             pos_hint: {"center_x": 0.83, "center_y": 0.6}

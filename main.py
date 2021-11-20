@@ -24,11 +24,8 @@ from threading import Thread
 import time
 import math
 import wave
-from pyobjus.dylib_manager import make_dylib, load_dylib
-from pyobjus import autoclass, objc_str
-
-
-#from audiostream import get_input
+from pyobjus import autoclass
+from audiostream import get_input
 import pickle
 
 
@@ -46,14 +43,17 @@ class Launch(Screen, MDApp):
 
     def __init__(self, **kw):
         super().__init__(**kw)
-        global jsonFilename, jsonStore
-        jsonFilename = join(MDApp.get_running_app().user_data_dir, "jsonStore.json")# if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
+        global jsonFilename, jsonStore, filepath
+        filepath = MDApp.get_running_app().user_data_dir
+
+        jsonFilename = join(filepath, "jsonStore.json")# if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
         # the 'join' class is used to create a single path name to the new file "jsonStore.json"
 
         jsonStore = JsonStore(
             jsonFilename)# wraps the filename as a json object to store data locally on the mobile phone
         if not jsonStore.exists("localData"):
             jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "")
+
 
         self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
         self.loggedIn = jsonStore.get("localData")["loggedIn"]
@@ -62,8 +62,6 @@ class Launch(Screen, MDApp):
 
     def finishInitialising(self, dt):
         # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
-
-        self.loggedIn = "True"
 
         if self.loggedIn == "True":
             self.accountID = jsonStore.get("localData")["accountID"]
@@ -177,7 +175,7 @@ class SignUp(Screen, MDApp):
 
                 # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in and have unique accountID
 
-                # start MQTT loop in objective c here
+                createThreads_MQTT(self.accountID)
 
                 if self.initialUse == "True":  # if the app is running for the first time on the user's mobile
                     self.manager.transition = NoTransition()  # creates a cut transition type
@@ -241,11 +239,8 @@ class SignIn(Screen, MDApp):
             self.accountID = response.text # if the user inputs details which match an account stored in the MySQL database, their unique accountID is returned
             jsonStore.put("localData", initialUse=self.initialUse, loggedIn="True", accountID = self.accountID)  # updates json object to reflect that user has successfully signed in
             # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in
-            client = mqtt.Client()
-            client.username_pw_set(username="yrczhohs", password="qPSwbxPDQHEI")
-            client.on_connect = on_connect  # creates callback for successful connection with broker
-            client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
-            client.loop_start()  # creates thread which runs parallel to main thread
+
+            createThreads_MQTT(self.accountID)
 
             if self.initialUse == "True": # if the app is running for the first time on the user's mobile
                 self.manager.transition = NoTransition()  # creates a cut transition type
@@ -309,6 +304,7 @@ class MessageResponses_add(Screen, MDApp):
         self.numPages = int(math.ceil(self.numMessages / 3))
         self.currentPage = 0
         self.currentMessage = -3
+        self.previewMessages = False
         Clock.schedule_once(self.finishInitialising)  # Kivy rules are not applied until the original Widget (MessageResponses_add) has finished instantiating, so must delay the initialisation
         # as the instantiation results in 1 of 2 methods (darkenImage() or create_audioMessages()) being called,
         # each of which requires access to Kivy ids to create the GUI and this is only possible if the instantiation is delayed
@@ -355,6 +351,8 @@ class MessageResponses_add(Screen, MDApp):
                         self.ids.plusIcon.pos_hint = {"x": 0.65, "y": 0.5} # position of plus icon image to create a new audio message
                         self.ids.button_audioMessage_1.disabled = False
                         self.ids.button_audioMessage_2.disabled = False
+                        self.ids.button_audioMessage_3.disabled = True
+                        self.ids.button_plusIcon.disabled = True
                     elif self.numMessages % 3 == 2:  # modulus used to determine if there are two audio messages on the final page
                         # code below sets up the icons and buttons for the GUI when the user has already added two audio messages on the page:
                         self.ids.audioMessage_name1.text = self.audioMessages[str(self.currentMessage)][1] # name of the audio message in the top left icon is the first item in the tuple
@@ -363,6 +361,7 @@ class MessageResponses_add(Screen, MDApp):
                         self.ids.button_audioMessage_1.disabled = False
                         self.ids.button_audioMessage_2.disabled = False
                         self.ids.button_audioMessage_3.disabled = False
+                        self.ids.button_plusIcon.disabled = True
                     elif self.numMessages % 3 == 0:  # modulus used to determine if there are three audio messages on the final page
                         # code below sets up the icons and buttons for the GUI when the user has already added three audio messages on the page:
                         self.ids.audioMessage_name1.text = self.audioMessages[str(self.currentMessage)][1] # name of the audio message in the top left icon is the first item in the tuple
@@ -373,21 +372,22 @@ class MessageResponses_add(Screen, MDApp):
                         self.ids.button_audioMessage_2.disabled = False
                         self.ids.button_audioMessage_3.disabled = False
                         self.ids.button_plusIcon.disabled = False
+
         self.ids.plusIcon.opacity = 1 # sets the opacity of the plus icon (to add more audio messages) to 1 after placing it/them in the correct position on the screen depending on how many audio messages the user has already added
 
     def target_addMessage(self):
         # instantiates a target view widget which is displayed on the first use of the app to explain to the user what it means to add an audio message
         self.targetView = MDTapTargetView(
             widget=self.ids.button_audioMessage_1,
-            title_text="          Add an audio message",
+            title_text="             Add an audio message",
             description_text="              You can create personalised\n              audio responses which can\n              be easily selected in the\n              SmartBell app and played by\n              "
                              "your SmartBell when a visitor\n              comes to the door.",
             widget_position="left_top",
             outer_circle_color=(49/255, 155/255, 254/255),
             target_circle_color = (145/255, 205/255,241/255),
             outer_radius = 370,
-            title_text_size=40,
-            description_text_size = 40,
+            title_text_size=33,
+            description_text_size = 27,
             cancelable= False
         ) # creates the target view widget with the required properties
 
@@ -420,6 +420,74 @@ class MessageResponses_add(Screen, MDApp):
             self.manager.current = "MessageResponses_createText"  # switches to 'MessageResponses_createAudio' GUI
             self.manager.current_screen.__init__() # initialises the running instance of the 'MessageResponses_createAudio' class
             self.manager.current_screen.set_messageDetails(self.messageDetails) # calls the 'set_messageDetails' method of the running instance of the 'MessageResponses_createAudio' class
+
+    def respondAudio_select(self):
+        self.previewMessages = True
+        self.ids.previewMessages.opacity = 1
+
+
+    def respondAudio_preview(self, currentMessage):
+        self.messageNum = (self.currentPage-1)*3 + currentMessage-1 # calculates message number so that messageID can be retrieved from json object 'self.audioMessages'
+        self.messageID = self.audioMessages[str(self.messageNum)][0]
+        self.messageName = self.audioMessages[str(self.messageNum)][1]
+        self.messageText = self.audioMessages[str(self.messageNum)][2]
+        if len(self.messageText) < 25:
+            self.maxLength = len(self.messageText)
+        else:
+            self.maxLength = 25
+        self.previewMessage_dialog()
+
+    def respondAudio_new(self):
+        print("Create new audio message")
+        # user can create new audio message
+
+    def cancelRespond_dialog(self):
+
+        self.dialog = MDDialog(
+            title="Are you sure you want to cancel your response?",
+            auto_dismiss=False,
+            type="custom",
+            buttons=[MDFlatButton(text="NO", text_color=((128 / 255), (128 / 255), (128 / 255), 1),
+                                  on_press=self.dismissDialog),
+                     MDRaisedButton(text="YES", md_bg_color=(136 / 255, 122 / 255, 239 / 255, 1),
+                                    on_press=self.cancelRespond)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
+        self.dialog.open()  # opens the dialog box
+
+    def cancelRespond(self, instance):
+        print("Response cancelled")
+        self.dialog.dismiss()
+        self.manager.current = "Homepage"
+
+    def previewMessage_dialog(self):
+        # markup used to increase accessibility and usability
+        self.dialog = MDDialog(
+            title="Play message '{}' through your SmartBell?".format(self.messageName),
+            text = str("[b]Message preview [/b]\n\n[i]"+self.messageText[:self.maxLength]+"[/i]"),
+            auto_dismiss=False,
+            type="custom",
+            buttons=[MDFlatButton(text="NO", text_color=((128 / 255), (128 / 255), (128 / 255), 1),
+                                  on_press=self.dismissDialog),
+                     MDRaisedButton(text="YES!",
+                                    on_press=self.transmitMessage)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
+        self.dialog.open()  # opens the dialog box
+
+    def transmitMessage(self, instance):
+        self.dialog.dismiss()
+        print("Transmit message")
+        MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
+        mqtt = MQTTSessionDelegate.alloc().init()
+        if self.messageText == "Null":
+            mqtt.publishData = str(self.messageText)
+            mqtt.publishTopic = f"audio/text/{self.accountID}"
+        else:
+            mqtt.publishData = str(self.messageID)
+            mqtt.publishTopic = f"audio/audio/{self.accountID}"
+        mqtt.publish()
+
+    def dismissDialog(self, instance):
+        # method which is called when 'Cancel' is tapped on the dialog box
+        self.dialog.dismiss()  # closes the dialog box
+
 
 class MessageResponses_create(Screen, MDApp):
     # 'MessageResponses_create' class allows the user to select whether they would like to record their audio message using their voice as the input or type their audio message using the on-screen keyboard as their input. The GUI is created in the kv file.
@@ -466,7 +534,7 @@ class MessageResponses_createAudio(Screen, MDApp):
         self.endTime = time.time() # stops the timer which records how long button to record audio is held for
         if (self.endTime - self.startTime) <= 1:  # if this audio recording is too short, an error message will be returned
             self.recordAudio.falseStop() # calls the method which clears the data stored from the recording as the recording was too short and therefore is invalid
-            self.ids.snackbar.font_size = 36
+            self.ids.snackbar.font_size = 30
             self.ids.snackbar.text = "Press and hold the microphone to speak"  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
             self.openSnackbar() # calls the method which opens the snackbar to indicate that the audio message recorded was too short
             self.dismissSnackbar_thread = Thread(target=self.dismissSnackbar, args=(),
@@ -475,7 +543,7 @@ class MessageResponses_createAudio(Screen, MDApp):
         else: # if the button to record audio is held for more than one second
             self.ids.button_recordAudio.disabled = True # disables the button to record an audio message
             self.audioData = self.recordAudio.stop() # calls the method which terminates the recording of the user's voice input and saves the audio data
-            with open(join((App.get_running_app().user_data_dir.replace("createAudio", "viewAudio")),"audioMessage_tmp.pkl"), "wb") as file: # create pkl file with name equal to the messageID in write bytes mode
+            with open(join(filepath,"audioMessage_tmp.pkl"), "wb") as file: # create pkl file with name equal to the messageID in write bytes mode
                 pickle.dump(self.audioData, file) # 'pickle' module serializes the data stored in the object (list) 'self.audioData' into a byte stream which is stored in pkl file
                 file.close() # closes the file
             self.manager.current = "MessageResponses_viewAudio"  # switches to 'MessageResponses_viewAudio' GUI
@@ -485,7 +553,7 @@ class MessageResponses_createAudio(Screen, MDApp):
 
     def helpAudio(self):
         # method which instructs the user how to record an audio message if they press the 'Help' button
-        self.ids.snackbar.font_size = 36
+        self.ids.snackbar.font_size = 30
         self.ids.snackbar.text = "Press and hold the microphone to speak"  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
         self.openSnackbar()  # calls the method which opens the snackbar to indicate that the audio message recorded was too short
         self.dismissSnackbar_thread = Thread(target=self.dismissSnackbar, args=(),
@@ -545,11 +613,12 @@ class recordAudio(Screen):
         return self.audioData
 
 
-class MessageResponses_review(Screen, MDApp):
+class MessageResponses_view(Screen, MDApp):
 
     def __init__(self, **kw):
         super().__init__(**kw)
         self.accountID = jsonStore.get("localData")["accountID"]  # assigns the value of 'accounID' to the variable 'self.accountID' from the local jsonStore
+        self.audioRename = False
 
     def set_messageDetails(self, messageDetails):
         self.messageDetails = messageDetails
@@ -559,16 +628,15 @@ class MessageResponses_review(Screen, MDApp):
         self.initialRecording = False
         self.initialTyping = False
         try:
-            self.ids.previousMessage.text = self.messageText
-            self.ids.previousMessage_heading.text = "The current text of your audio message:"
+            self.ids.previousMessage_heading.markup = True
+            self.ids.previousMessage_heading.text = str("[i]The current text of your audio message:[/i]")
+            self.ids.previousMessage.text = "  "+self.messageText
             self.ids.previousMessage.opacity = 1
         except:
             pass
 
     def nameMessage_dialog(self):
         # method which allows the user to input the name of the audio message which they recorded/typed
-        print(self.initialRecording)
-        print(self.messageType)
         if (self.initialRecording == False and self.messageType == "Voice") or (self.initialTyping == False and self.messageType == "Text"):
             title = "Enter a new name for this audio message or press 'cancel' to keep it named '{}':".format(self.messageName)
         else:
@@ -585,7 +653,10 @@ class MessageResponses_review(Screen, MDApp):
     def dismissDialog(self, instance):
         # method which is called when 'Cancel' is tapped on the dialog box
         self.dialog.dismiss()  # closes the dialog box
+        print(self.initialRecording)
+        print(self.messageType)
         if (self.initialRecording == False and self.messageType == "Voice") or (self.initialTyping == False and self.messageType == "Text"):
+            print("rename")
             self.update_audioMessages()
 
     def nameMessage(self, instance):
@@ -606,12 +677,9 @@ class MessageResponses_review(Screen, MDApp):
                 else: # if the user has inputted a name which is not already in use by that user and is 13 or less characters in length
                     if (self.initialRecording == True and self.messageType == "Voice") or (self.initialTyping == True and self.messageType == "Text"): # if this audio message has just been recorded
                         self.messageID = self.create_messageID()  # calls the method which creates a unique messageID for the audio message which the user has created
-                        if self.initialRecording == True and self.messageType == "Voice":
-                            oldName = join(App.get_running_app().user_data_dir,"audioMessage_tmp.pkl")
-                            newName = join(App.get_running_app().user_data_dir,(self.messageID + ".pkl"))
-                            os.rename(oldName, newName)
-                            oldName = join(App.get_running_app().user_data_dir,"audioMessage_tmp.wav")
-                            newName = join(App.get_running_app().user_data_dir,(self.messageID + ".wav"))
+                        if self.audioRename == True:
+                            oldName = join(filepath,"audioMessage_tmp.wav")
+                            newName = join(filepath,(self.messageID + ".wav"))
                             os.rename(oldName, newName)
                     self.dialog.dismiss()  # closes the dialog box
                     self.messageName = object.text # assigns the text of the MDTextField to the variable 'self.messageName' (the text is the name of the audio message as inputted by the user)
@@ -638,7 +706,7 @@ class MessageResponses_review(Screen, MDApp):
         response = requests.post(serverBaseURL + "/delete_audioMessages", self.dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
 
 
-class MessageResponses_viewAudio(MessageResponses_review, Screen, MDApp):
+class MessageResponses_viewAudio(MessageResponses_view, Screen, MDApp):
     def __init__(self, **kw):
         super().__init__(**kw)
         self.playbackAudio_gif = "SmartBell_playbackAudio.zip"  # loads the zip file used to create the audio playback gif
@@ -646,28 +714,32 @@ class MessageResponses_viewAudio(MessageResponses_review, Screen, MDApp):
         self.initialRecording = True
         self.initialTyping = None
         self.messageType = "Voice"
-        self.messageID = "audioMessage_tmp"
+
 
     def update_audioMessages(self):
         # method which updates the MySQL table to store the data about the audio message created by the user
         self.dbData_update = {} # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_update["messageID"] = self.messageID  # adds the variable 'messageID' to the dictionary 'dbData_update'
         self.dbData_update["messageName"] = self.messageName  # adds the variable 'messageName' to the dictionary 'dbData_update'
-        self.dbData_update["fileText"] = "Null"  # adds the 'null' variable 'fileText' to the dictionary 'dbData_update'
+        self.dbData_update["messageText"] = "Null"  # adds the 'null' variable 'fileText' to the dictionary 'dbData_update'
         self.dbData_update["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData_update'
         self.dbData_update["initialCreation"] = str(self.initialRecording)  # adds the variable 'initialRecording' to the dictionary 'dbData_update'
         response = requests.post(serverBaseURL + "/update_audioMessages", self.dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
-        self.uploadAWS()  # calls the method to upload the audio message data to AWS S3
+        if self.initialRecording == True:
+            self.uploadAWS()  # calls the method to upload the audio message data to AWS S3
+        else:
+            self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
+            self.manager.current_screen.__init__()  # creates a new instance of the 'MessageResponses_add' class
 
     def uploadAWS(self):
         # method which sends the data for the audio message recorded by the user as a pkl file to the AWS elastic beanstalk environment, where it is uploaded to AWS s3 using 'boto3' module
         self.uploadData = {"bucketName": "nea-audio-messages",
                            "s3File": self.messageID + ".pkl"}  # creates the dictionary which stores the metadata required to upload the personalised audio message to AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
-        file = {"file": open(join(App.get_running_app().user_data_dir, self.messageID+".pkl"), "rb")} # opens the file to be sent using Flask's 'request' method (which contains the byte stream of audio data) and stores the file in a dictionary
-        #file = {"file": open(self.messageID + ".pkl", "rb")}
+        file = {"file": open(join(filepath, "audioMessage_tmp.pkl"), "rb")} # opens the file to be sent using Flask's 'request' method (which contains the byte stream of audio data) and stores the file in a dictionary
         response = requests.post(serverBaseURL + "/uploadS3", files=file,
                                  data=self.uploadData)  # sends post request to 'uploadS3' route on AWS server to upload the pkl file storing the data about the audio message to AWS s3 using 'boto3'
         # This is done because the 'boto3' module cannot be installed on mobile phones so the process of uploading the pkl file to AWS s3 using boto3 must be done remotely on the AWS elastic beanstalk environment
+        os.remove(join(filepath, "audioMessage_tmp.pkl"))
         self.loggedIn = jsonStore.get("localData")["loggedIn"]
         jsonStore.put("localData", initialUse="False", loggedIn=self.loggedIn, accountID=self.accountID)
         self.manager.transition = NoTransition()  # creates a cut transition type
@@ -676,38 +748,31 @@ class MessageResponses_viewAudio(MessageResponses_review, Screen, MDApp):
 
     def play_audioMessage(self):
         # method which allows user to playback the audio message which they have recorded
-        #self.fileName = copy.deepcopy(self.messageID)
-        self.fileName = join(App.get_running_app().user_data_dir, self.messageID)
-        if self.messageID != "audioMessage_tmp":
-            try:
-                self.messageFile_voice = SoundLoader.load(self.fileName + ".wav")
-                if self.messageFile_voice.length != 0:
-                    pass
-                    print("wav on computer")
-            except:
-                pass
+        if os.path.isfile(join(filepath, (self.messageID+"wav"))):
+            self.fileName = join(filepath, self.messageID)
+            print("wav on app")
         else:
-            try:
+            if os.path.isfile(join(filepath, "audioMessage_tmp.pkl")):
+                self.fileName = join(filepath, "audioMessage_tmp")
                 with open(self.fileName+".pkl", "rb") as file:
                     self.audioData = pickle.load(file)
                     file.close()  # closes the file
-                    print("pkl on computer")
-            except:
+                    self.audioRename = True
+                    print("pkl on app")
+            else:
+                self.fileName = join(filepath, self.messageID)
                 self.downloadData = {"bucketName": "nea-audio-messages",
-                                     "s3File": self.fileName + ".pkl"}  # creates the dictionary which stores the metadata required to download the pkl file of the personalised audio message from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
+                                     "s3File": self.messageID}  # creates the dictionary which stores the metadata required to download the pkl file of the personalised audio message from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
                 response = requests.post(serverBaseURL + "/downloadS3", self.downloadData)
                 self.audioData = response.content
-                with open(join(self.fileName + ".pkl"), "wb") as file:
-                    pickle.dump(response.content,file)  # 'pickle' module serializes the data stored in the object (list) 'self.audioData' into a byte stream which is stored in pkl file
-                    file.close()  # closes the file
-                    print("pkl on AWS")
-            self.messageFile = wave.open((self.fileName + ".wav"), "wb")
+                print("pkl on AWS")
+            self.messageFile = wave.open(self.fileName+".wav", "wb")
             self.messageFile.setnchannels(1)  # change to 1 for audio stream module
             self.messageFile.setsampwidth(2)
             self.messageFile.setframerate(8000)  # change to 8000 for audio stream module
             self.messageFile.writeframes(b''.join(self.audioData))
             self.messageFile.close()
-        self.messageFile_voice = SoundLoader.load(self.fileName + ".wav")
+        self.messageFile_voice = SoundLoader.load(self.fileName+".wav")
         self.messageFile_voice.play()
         self.ids.playbackAudio.source = self.playbackAudio_gif
         self.audioLength = self.messageFile_voice.length
@@ -720,7 +785,7 @@ class MessageResponses_viewAudio(MessageResponses_review, Screen, MDApp):
         self.ids.playbackAudio.source = self.playbackAudio_static
 
 
-class MessageResponses_createText(MessageResponses_review, Screen, MDApp):
+class MessageResponses_createText(MessageResponses_view, Screen, MDApp):
     def __init__(self, **kw):
         super().__init__(**kw)
         self.initialTyping = True
@@ -746,10 +811,11 @@ class MessageResponses_createText(MessageResponses_review, Screen, MDApp):
         self.dbData_update = {} # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_update["messageID"] = self.messageID  # adds the variable 'messageID' to the dictionary 'dbData_update'
         self.dbData_update["messageName"] = self.messageName  # adds the variable 'messageName' to the dictionary 'dbData_update'
-        self.dbData_update["fileText"] = self.textMessage # adds the 'null' variable 'fileText' to the dictionary 'dbData_update'
+        self.dbData_update["messageText"] = self.textMessage # adds the 'null' variable 'fileText' to the dictionary 'dbData_update'
         self.dbData_update["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData_update'
         self.dbData_update["initialCreation"] = str(self.initialTyping)  # adds the variable 'initialRecording' to the dictionary 'dbData_update'
         response = requests.post(serverBaseURL + "/update_audioMessages",self.dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
+        print(response)
         self.loggedIn = jsonStore.get("localData")["loggedIn"]
         jsonStore.put("localData", initialUse="False", loggedIn=self.loggedIn, accountID=self.accountID)
         self.manager.transition = NoTransition()  # creates a cut transition type
@@ -792,7 +858,6 @@ class MyApp(MDApp):
 def createThreads_MQTT(accountID):
     MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
     mqtt = MQTTSessionDelegate.alloc().init()
-    accountID = "MzVmXPjQXsIBouwmHM2ISwsJx0SB4UTncAVjnvnKcmI="
     mqtt.ringTopic = f"ring/{accountID}"
     mqtt.visitTopic = f"visit/{accountID}"
     mqtt.connect()  # connect to to mqtt broker
@@ -809,6 +874,7 @@ def createThreads_MQTT(accountID):
 def ringThread(mqtt):
     while True:
         if mqtt.messageReceived_ring == 1:
+            mqtt.messageReceived_ring = 0 # value of 'messageReceived' must be set to 0 so that new messages can be received
             MDApp.get_running_app().manager.current = "RingAlert"
             visitID = str(mqtt.messageData.UTF8String())
             downloadData = {"bucketName": "nea-visitor-log",
@@ -818,23 +884,24 @@ def ringThread(mqtt):
                 response = requests.post(serverBaseURL + "/downloadS3", downloadData)
                 response_text = response.text
             visitorImage_data = response.content
-            f = open(join(MDApp.get_running_app().user_data_dir, 'visitorImage.png'), 'wb')
+            f = open(join(filepath, 'visitorImage.png'), 'wb')
             f.write(visitorImage_data)
             f.close()
             MDApp.get_running_app().manager.current = "VisitorImage"
-            visitorImage = AsyncImage(source=join(MDApp.get_running_app().user_data_dir, 'visitorImage.png'),
+            visitorImage = AsyncImage(source=join(filepath, 'visitorImage.png'),
                                       pos_hint={"center_x": 0.5,
                                                 "center_y": 0.53})  # AsyncImage loads image as background thread
             visitorImage.reload()  # reloads the image file to ensure the latest stored image is used
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
                 visitorImage)  # accesses screen ids and adds the visitor image as a widget to a nested float layout
-        else:
-            time.sleep(1)
+            print(MDApp.get_running_app().manager.current)
 
-8gPxl74fDKsjdQIWmJf0GeUhb60YqrrvTDrEMZo7JJZ
+
+
 def visitThread(mqtt):
     while True:
         if mqtt.messageReceived_visit == 1:
+            mqtt.messageReceived_visit = 0
             visitID = str(mqtt.messageData.UTF8String())
             data_visitID = {"visitID": visitID}
             response = None
@@ -855,8 +922,7 @@ def visitThread(mqtt):
             else:
                 faceName = "No face identified"
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorName.text = faceName
-        else:
-            time.sleep(1)
+
 
 
 
