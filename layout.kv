@@ -279,6 +279,15 @@ WindowManager: #initiates and orders all screens/classes
                 root.manager.current = "MessageResponses_add"
                 root.manager.current_screen.__init__()
 
+        Button:
+            id: button_latestImage
+            size_hint: 0.23,0.12
+            pos_hint: {"x": 0.15, "y": 0.52}
+            on_press:
+                root.manager.current = "VisitorImage"
+                root.manager.current_screen.get_latestImage()
+
+
 
 <MessageResponses_add>:
 
@@ -484,7 +493,10 @@ WindowManager: #initiates and orders all screens/classes
             source: "SmartBell_audioRecord_static.png"
             anim_delay: 0 #sets the delay between each image in the zip file to 0 so that the gif is played smoothly
             anim_loop: 1 #sets the limit for the number of loops of the gif to 1
-            pos_hint: {"center_x":0.51, "center_y": 0.58}
+            allow_stretch: True
+            keep_ratio: True
+            size_hint: 2,2
+            pos_hint: {"center_x":0.5, "center_y": 0.6}
 
         Button:
             id: button_recordAudio #unique identifier for this specific image
@@ -560,7 +572,6 @@ WindowManager: #initiates and orders all screens/classes
             source: "SmartBell_playbackAudio.png"
             anim_delay: 0 #sets the delay between each image in the zip file to 0 so that the gif is played smoothly
             anim_loop: 0 #sets an infinite loop limit for the gif
-            size_hint: (2,2)
             pos_hint: {"center_x":0.5, "center_y": 0.6}
 
         Button:
@@ -627,35 +638,11 @@ WindowManager: #initiates and orders all screens/classes
 
         MDTextField:
             id: textMessage #unique identifier for this specific textfield
-            hint_text: "Enter the text for audio message" #hint text indicates what data the user should input into this text field
-            #multiline: True
-            #max_height: "100dp"
+            hint_text: "Enter text for audio message" #hint text indicates what data the user should input into this text field
             size_hint_x: 0.765
             pos_hint: {"center_x": 0.5, "center_y": 0.7} #position of text field relative to screen
 
-        MDLabel:
-            id: previousMessage_heading
-            theme_text_color: "Custom"
-            font_size: 27
-            text_color: 1,1,1,1
-            halign: "left" #horizontally align the text to the center of the label
-            size_hint: 0.8, 0.3
-            pos_hint: {"center_x": 0.53, "center_y": 0.54} #position of label relative to screen
 
-        MDLabel:
-            id: previousMessage #unique identifier for this specific label
-            canvas.before:
-                Color:
-                    rgba: (1,1,1,1)
-                Line:
-                    width: 0.7
-                    rectangle: (self.x-5, self.y-5, self.width+5, self.height+5)
-            theme_text_color: "Custom"
-            text_color: 1,1,1,1
-            font_size: 30
-            size_hint: 0.76, 0.1
-            pos_hint: {"center_x": 0.51, "center_y": 0.45} #position of label relative to screen
-            opacity: 0
 
 
         Button:
@@ -763,6 +750,14 @@ WindowManager: #initiates and orders all screens/classes
             allow_stretch: True #allows image to be stretched so that it fills the screen
             keep_ratio: False #allows image proportions to be altered so that it fills the screen
 
+        Image:
+            id: loading
+            source: "SmartBell_loading.zip"
+            anim_delay: 0.075
+            anim_loop: 0
+            size_hint: 2, 2
+            pos_hint: {"center_x":0.5,"center_y": 0.5} #position of image relative to parent screen
+
         Label:
             id: visitorName
             text: "Loading..."
@@ -784,7 +779,7 @@ WindowManager: #initiates and orders all screens/classes
             id: button_homepage #unique identifier for this specific button
             pos_hint: {"center_x": 0.52, "center_y": 0.07}
             size_hint: 0.2,0.1
-            on_press: root.manager.current = "Homepage"
+            on_press: root.cancelRespond_dialog()
 
         Button:
             id: button_respond #unique identifier for this specific button
