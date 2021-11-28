@@ -66,7 +66,7 @@ class Launch(Screen, MDApp):
 
         if self.loggedIn == "True":
             self.accountID = jsonStore.get("localData")["accountID"]
-            createThreads_MQTT(self.accountID)
+            createThread_ring(self.accountID)
             # connect to MQTT broker to receive messages when visitor presses doorbell as already logged in
             self.manager.transition = NoTransition()
             self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
@@ -176,7 +176,7 @@ class SignUp(Screen, MDApp):
 
                 # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in and have unique accountID
 
-                createThreads_MQTT(self.accountID)
+                createThread_ring(self.accountID)
 
                 if self.initialUse == "True":  # if the app is running for the first time on the user's mobile
                     self.manager.transition = NoTransition()  # creates a cut transition type
@@ -241,7 +241,7 @@ class SignIn(Screen, MDApp):
             jsonStore.put("localData", initialUse=self.initialUse, loggedIn="True", accountID = self.accountID)  # updates json object to reflect that user has successfully signed in
             # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in
 
-            createThreads_MQTT(self.accountID)
+            createThread_ring(self.accountID)
 
             if self.initialUse == "True": # if the app is running for the first time on the user's mobile
                 self.manager.transition = NoTransition()  # creates a cut transition type
@@ -422,12 +422,8 @@ class MessageResponses_add(Screen, MDApp):
             self.manager.current_screen.set_messageDetails(self.messageDetails) # calls the 'set_messageDetails' method of the running instance of the 'MessageResponses_createAudio' class
 
     def respondAudio_select(self):
-        global updateFaces
         self.previewMessages = True
-        self.updateFaces = updateFaces
         self.ids.previewMessages.opacity = 1 # changes background image to instruct user to select images
-
-
 
     def respondAudio_preview(self, currentMessage):
         self.messageNum = (self.currentPage-1)*3 + currentMessage-1 # calculates message number so that messageID can be retrieved from json object 'self.audioMessages'
@@ -457,10 +453,11 @@ class MessageResponses_add(Screen, MDApp):
         self.dialog.open()  # opens the dialog box
 
     def cancelRespond(self, instance):
+        global updateFaces
         self.dialog.dismiss()
-        if self.updateFaces == True:
-            self.updateFaces_dialog()
         self.manager.current = "Homepage"
+        if updateFaces == True:
+            self.updateFaces_dialog()
 
 
     def previewMessage_dialog(self):
@@ -481,6 +478,7 @@ class MessageResponses_add(Screen, MDApp):
         self.dialog.open()  # opens the dialog box
 
     def transmitMessage(self, instance):
+        global updateFaces
         self.dialog.dismiss()
         MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
         mqtt = MQTTSessionDelegate.alloc().init()
@@ -491,7 +489,7 @@ class MessageResponses_add(Screen, MDApp):
             mqtt.publishData = str(self.messageID)
             mqtt.publishTopic = f"message/audio/{self.accountID}"
         mqtt.publish()
-        if self.updateFaces == True:
+        if updateFaces == True:
             self.updateFaces_dialog()
 
     def updateFaces_dialog(self):
@@ -508,9 +506,9 @@ class MessageResponses_add(Screen, MDApp):
         self.dialog.open()  # opens the dialog box
 
     def update_knownFaces(self, instance):
-        global faceID
+        global faceID, updateFaces
         self.dialog.dismiss()
-        self.updateFaces = False
+        updateFaces = False
         for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the visitor
             if isinstance(object, MDTextField):
                 faceName = object.text
@@ -846,7 +844,6 @@ class MessageResponses_createText(MessageResponses_view, Screen, MDApp):
         self.dbData_update["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData_update'
         self.dbData_update["initialCreation"] = str(self.initialTyping)  # adds the variable 'initialRecording' to the dictionary 'dbData_update'
         response = requests.post(serverBaseURL + "/update_audioMessages",self.dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
-        print(response)
         self.loggedIn = jsonStore.get("localData")["loggedIn"]
         jsonStore.put("localData", initialUse="False", loggedIn=self.loggedIn, accountID=self.accountID)
         self.manager.transition = NoTransition()  # creates a cut transition type
@@ -946,7 +943,7 @@ def visitorImage_thread(visitID):
         visitorImage)  # accesses screen ids and adds the visitor image as a widget to a nested float layout
     MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0
 
-def createThreads_MQTT(accountID):
+def createThread_ring(accountID):
     MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
     mqtt = MQTTSessionDelegate.alloc().init()
     mqtt.ringTopic = f"ring/{accountID}"
@@ -957,6 +954,8 @@ def createThreads_MQTT(accountID):
     thread_ring.setDaemon(True)
     thread_ring.start()
 
+
+def createThread_visit(mqtt):
     thread_visit = Thread(target=visitThread, args=(mqtt,))
     thread_visit.setDaemon(True)
     thread_visit.start()
@@ -984,15 +983,19 @@ def ringThread(mqtt):
                                       pos_hint={"center_x": 0.5,
                                                 "center_y": 0.53})  # AsyncImage loads image as background thread
             visitorImage.reload()  # reloads the image file to ensure the latest stored image is used
+            mqtt.notifyPhone()
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
                 visitorImage)  # accesses screen ids and adds the visitor image as a widget to a nested float layout
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0
-            mqtt.notifyPhone()
+            createThread_visit(mqtt) # visit thread only called once doorbell is rung to save battery life
+        else:
+            time.sleep(3) # save battery as looping less often
 
 def visitThread(mqtt):
     global updateFaces, faceID
     while True:
         if mqtt.messageReceived_visit == 1:
+            updateFaces = False  # reset value of updateFaces
             mqtt.messageReceived_visit = 0
             visitID = str(mqtt.messageData.UTF8String())
             data_visitID = {"visitID": visitID}
@@ -1012,8 +1015,7 @@ def visitThread(mqtt):
             else:
                 faceName = "No face identified"
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorName.text = faceName
-        time.sleep(1) # save battery as looping less often
-        updateFaces = False # reset value of updateFaces
+            break
 
 
 
