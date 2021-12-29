@@ -1,20 +1,19 @@
+import os
+os.environ['KIVY_AUDIO'] = 'avplayer'
 from kivymd.app import MDApp
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.taptargetview import MDTapTargetView
 from kivymd.uix.button import MDFlatButton, MDRaisedButton
 from kivy.uix.image import AsyncImage
-from kivy.app import App
 from kivy.uix.boxlayout import BoxLayout
 from kivy.core.audio import SoundLoader
 from kivy.uix.screenmanager import ScreenManager, Screen, SlideTransition, NoTransition
 from kivy.lang import Builder
 from kivy.clock import Clock
-from kivy.core.window import Window
 from kivy.animation import Animation
 from kivy.storage.jsonstore import JsonStore
 from os.path import join
-import os
 import re
 import random
 import string
@@ -53,8 +52,7 @@ class Launch(Screen, MDApp):
         jsonStore = JsonStore(
             jsonFilename)# wraps the filename as a json object to store data locally on the mobile phone
         if not jsonStore.exists("localData"):
-            jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "")
-
+            jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "", paired = "False")
 
         self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
         self.loggedIn = jsonStore.get("localData")["loggedIn"]
@@ -89,6 +87,7 @@ class SignUp(Screen, MDApp):
         self.email_ok = False  # variable which indicates that a valid value has been inputted by the user
         self.password_ok = False  # variable which indicates that a valid value has been inputted by the user
         self.initialUse = jsonStore.get("localData")["initialUse"]
+        self.paired = jsonStore.get("localData")["paired"]
         if self.ids.firstName.text == "":  # if no data is inputted...
             self.ids.firstName_error.opacity = 1  # ...then an error message is displayed
         else:
@@ -148,7 +147,7 @@ class SignUp(Screen, MDApp):
         self.updateUsers()
 
     def updateUsers(self):
-        # add user's details to 'users' tabel in AWS RDS database
+        # add user's details to 'users' table in AWS RDS database
         self.dbData_update = {} # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_update["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData'
         self.dbData_update["firstName"] = self.firstName  # adds the variable 'firstName' to the dictionary 'dbData'
@@ -172,16 +171,15 @@ class SignUp(Screen, MDApp):
                 self.thread_dismissSnackbar.start() # starts the thread which will run in pseudo-parallel to the rest of the program
             else:
                 jsonStore.put("localData", initialUse=self.initialUse,
-                                   loggedIn="True", accountID = self.accountID) # updates json object to reflect that user has successfully created an account
+                                   loggedIn="True", accountID = self.accountID, paired = self.paired) # updates json object to reflect that user has successfully created an account
 
                 # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in and have unique accountID
 
                 createThread_ring(self.accountID)
 
-                if self.initialUse == "True":  # if the app is running for the first time on the user's mobile
-                    self.manager.transition = NoTransition()  # creates a cut transition type
-                    self.manager.current = "Homepage"  # switches to 'Homepage' GUI
-                    self.manager.current.__init__()
+                self.manager.transition = NoTransition()  # creates a cut transition type
+                self.manager.current = "Homepage"  # switches to 'Homepage' GUI
+                self.manager.current.__init__()
 
     def openSnackbar(self):
         # method which controls the opening animation of the snackbar
@@ -205,6 +203,7 @@ class SignIn(Screen, MDApp):
         self.email_ok = False  # variable which indicates that a valid value has been inputted by the user
         self.password_ok = False  # variable which indicates that a valid value has been inputted by the user
         self.initialUse = jsonStore.get("localData")["initialUse"]
+        self.paired = jsonStore.get("localData")["paired"]
         if self.ids.email.text == "":  # if no data is inputted...
             self.ids.email_error_blank.opacity = 1  # ...then an error message is displayed
             self.ids.email_error_invalid.opacity = 0  # invalid email error message is removed
@@ -231,22 +230,31 @@ class SignIn(Screen, MDApp):
         self.dbData_verify = {}# dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_verify["email"] = self.email # adds the variable 'email' to the dictionary 'dbData'
         self.dbData_verify["password"] = self.hashedPassword # adds the variable 'password' to the dictionary 'dbData'
-        response = requests.post(serverBaseURL + "/verifyUser", self.dbData_verify) # sends a post request to the 'verifyUser' route of the AWS server to validate the details (email and password) entered by the user
-        if response.text == "none": # if the details inputted by the user don't match an existing account
+        response = (requests.post(serverBaseURL + "/verifyUser", self.dbData_verify)).json()['result']# sends a post request to the 'verifyUser' route of the AWS server to validate the details (email and password) entered by the user
+        if response == "none": # if the details inputted by the user don't match an existing account
             self.openSnackbar() # calls the method which creates the snackbar animation
             self.thread_dismissSnackbar = Thread(target=self.dismissSnackbar, args=(), daemon=False)  # initialises an instance of the 'threading.Thread()' method
             self.thread_dismissSnackbar.start() # starts the thread which will run in pseudo-parallel to the rest of the program
         else:
-            self.accountID = response.text # if the user inputs details which match an account stored in the MySQL database, their unique accountID is returned
-            jsonStore.put("localData", initialUse=self.initialUse, loggedIn="True", accountID = self.accountID)  # updates json object to reflect that user has successfully signed in
+            self.accountID = response # if the user inputs details which match an account stored in the MySQL database, their unique accountID is returned
+
+            dbData_accountID = {'accountID':self.accountID}
+            response = (requests.post(serverBaseURL + "/getPairing", dbData_accountID).json())['result']  # sends post request to 'verifyAccount' route on AWS server to check whether the email address inputted is already associated with an account
+            if response == 'none': # if there is no doorbell pairing for this account
+                self.paired = jsonStore.get("localData")["paired"]
+                jsonStore.put("localData", initialUse=self.initialUse, loggedIn="True", accountID = self.accountID, paired = self.paired)  # updates json object to reflect that user has successfully signed in
+            else:
+                self.id = response
+                jsonStore.put("localData", initialUse=self.initialUse, loggedIn="True", accountID = self.accountID, paired = self.id)  # updates json object to reflect that user has successfully signed in
+
+
             # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in
 
             createThread_ring(self.accountID)
 
-            if self.initialUse == "True": # if the app is running for the first time on the user's mobile
-                self.manager.transition = NoTransition()  # creates a cut transition type
-                self.manager.current = "Homepage"  # switches to 'Homepage' GUI
-                self.manager.current_screen.darkenImage()
+            self.manager.transition = NoTransition()  # creates a cut transition type
+            self.manager.current = "Homepage"  # switches to 'Homepage' GUI
+
 
     def openSnackbar(self):
         # method which controls the opening animation of the snackbar
@@ -267,26 +275,113 @@ class Homepage(Screen, MDApp):
     def __init__(self, **kw):
         super().__init__(**kw)
         self.initialUse = jsonStore.get("localData")["initialUse"]
+        self.loggedIn = jsonStore.get("localData")["loggedIn"]
+        self.paired = jsonStore.get("localData")["paired"]
+        self.accountID = jsonStore.get("localData")[
+            "accountID"]  # assigns the value of 'accounID' to the variable 'self.accountID' from the local jsonStore
+        if self.paired == "False":
+            title = f"Enter the name of the SmartBell which you would like to pair with:"
+            self.pair_dialog(title)
+        else:
+            self.id = self.paired
+            self.alreadyPaired_dialog()
 
-    def darkenImage(self):
-        # method which increases the opacity of an image
-        self.thread_lightenImage = Thread(target=self.lightenImage, args=(),
-                                                    daemon=False)  # initialises an instance of the 'threading.Thread()' method
-        self.thread_lightenImage.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
-        animation = Animation(opacity=0.7,
-                              d=0.4)  # automatic animation which gradually increases the opacity of the red circle image from 0 to 0.7
-        animation.start(self.redCircle)  # starts the animation of the red circle image
 
-    def lightenImage(self):
-        # method which decreases the opacity of an image
-        time.sleep(1)  # delay before image is lightened
-        animation = Animation(opacity=0,
-                              d=0.4)  # automatic animation which gradually reduce the opacity of red circle from 0.7 to 0
-        animation.start(self.redCircle)  # starts the animation of the red circle image
-        time.sleep(0.3)  # delay before audio messages screen is shown
-        self.manager.transition = NoTransition()  # creates a cut transition type
-        self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
-        self.manager.current_screen.__init__()
+    def pair_dialog(self, title):
+        if self.accountID == '':
+            self.dialog = MDDialog(
+                title='Sorry! Please login to your account to pair with your SmartBell.',
+                auto_dismiss=False,
+                type="custom",
+                buttons=[MDFlatButton(text="CANCEL", text_color=((128 / 255), (128 / 255), (128 / 255), 1),
+                                      on_press=self.dismissDialog),
+                         MDRaisedButton(text='OK', md_bg_color=(136 / 255, 122 / 255, 239 / 255, 1),
+                                        on_press=self.login)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
+        else:
+            self.dialog = MDDialog(
+                title = title,
+                auto_dismiss = False,
+                type = "custom",
+                content_cls = nameMessage_content(),  # content class
+                buttons = [MDFlatButton(text="CANCEL", text_color=((128 / 255), (128 / 255), (128 / 255), 1),
+                                        on_press=self.dismissDialog),
+                           MDRaisedButton(text='ENTER', md_bg_color=(136 / 255, 122 / 255, 239 / 255, 1),
+                                          on_press=self.pair)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
+        self.dialog.open()  # opens the dialog box
+
+    def alreadyPaired_dialog(self):
+        self.dialog = MDDialog(
+            title=f"You are currently paired with SmartBell '{self.id}'.\nDo you want to unpair / pair with a new SmartBell?",
+            auto_dismiss=False,
+            type="custom",
+            buttons=[MDFlatButton(text="CANCEL", text_color=((128 / 255), (128 / 255), (128 / 255), 1),
+                                  on_press=self.dismissDialog),
+                     MDRaisedButton(text='UNPAIR / PAIR', md_bg_color=(136 / 255, 122 / 255, 239 / 255, 1),
+                                    on_press=self.dismissDialog_alreadyPaired)])
+        self.dialog.open()  # opens the dialog box
+
+
+    def dismissDialog(self, instance):
+        # method which is called when 'Cancel' is tapped on the dialog box
+        self.dialog.dismiss()  # closes the dialog box
+
+    def dismissDialog_alreadyPaired(self, instance):
+        self.dialog.dismiss()  # closes the dialog box
+        title = f"Enter the name of the SmartBell which you would like to pair with. Alternatively, enter 'unpair' to unpair from SmartBell '{self.id}':"
+        self.pair_dialog(title)
+
+    def login(self, instance):
+        self.manager.current = 'SignIn'
+
+    def pair(self, instance):
+        self.dialog.dismiss()
+        for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the audio message they recorded/typed
+            if isinstance(object, MDTextField): # if the object is an MDTextField
+                self.newID = object.text
+        if self.newID.lower() == 'unpair':
+            jsonStore.put("localData", initialUse=self.initialUse, loggedIn=self.loggedIn, accountID=self.accountID, paired='False')
+            publishData = ""
+            id = self.id
+            pairing = False
+            pair_thread = Thread(target=pairThread, daemon=True, args=(self.accountID, id, pairing))
+            pair_thread.start()
+        else:
+            id = self.newID
+            publishData = str(self.accountID)
+            dbData_id = {'id': id}
+            response = (requests.post(serverBaseURL + "/checkPairing", dbData_id)).text
+            if response == 'notExists':
+                self.ids.snackbar.text = f"No SmartBell with the name '{id}' exists!\n"
+                self.snackbar()
+            elif response == 'exists':
+                pairing = True
+                pair_thread = Thread(target=pairThread, daemon=True, args=(self.accountID, id, pairing))
+                pair_thread.start()
+        MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
+        mqtt = MQTTSessionDelegate.alloc().init()
+        mqtt.publishData = publishData
+        mqtt.publishTopic = f"id/{id}"
+        mqtt.publish()
+
+
+    def snackbar(self):
+        self.openSnackbar()  # calls the method which creates the snackbar animation
+        self.thread_dismissSnackbar = Thread(target=self.dismissSnackbar, args=(),
+                                                       daemon=False)  # initialises an instance of the 'threading.Thread()' method
+        self.thread_dismissSnackbar.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
+
+    def openSnackbar(self):
+        # method which controls the opening animation of the snackbar
+        animation = Animation(pos_hint={"center_x": 0.5, "top": 0.095},
+                              d=0.03)  # end properties of the snackbar animation's opening motion
+        animation.start(self.ids.snackbar)  # executes the opening animation
+
+    def dismissSnackbar(self):
+        # method which controls the closing animation of the snackbar
+        time.sleep(5)  # delay before snackbar is closed
+        animation = Animation(pos_hint={"center_x": 0.5, "top": 0},
+                              d=0.03)  # end properties of the snackbar animation's closing motion
+        animation.start(self.ids.snackbar)  # executes the closing animation
 
 
 class MessageResponses_add(Screen, MDApp):
@@ -297,11 +392,25 @@ class MessageResponses_add(Screen, MDApp):
         super().__init__(**kw)
         self.initialUse = jsonStore.get("localData")["initialUse"]  # assigns the value of 'initialUse' to the variable 'self.initialUse' from the local jsonStore
         self.accountID = jsonStore.get("localData")["accountID"]  # assigns the value of 'accounID' to the variable 'self.accountID' from the local jsonStore
+        if self.accountID == '':
+            self.dialog = MDDialog(
+                title='Sorry! Please login to your account to create audio messages.',
+                auto_dismiss=False,
+                type="custom",
+                buttons=[MDFlatButton(text="CANCEL", text_color=((128 / 255), (128 / 255), (128 / 255), 1),
+                                      on_press=self.dismissDialog),
+                         MDRaisedButton(text='OK', md_bg_color=(136 / 255, 122 / 255, 239 / 255, 1),
+                                        on_press=self.login)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
+
         self.dbData_view = {} # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_view["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData'
-        response = requests.post(serverBaseURL + "/view_audioMessages",self.dbData_view)  # sends a post request to the 'view_audioMessages' route of the AWS server to fetch all the data about all the audio messages associated with that user
-        self.audioMessages = response.json()
-        self.numMessages = self.audioMessages["length"]
+        response = (requests.post(serverBaseURL + "/view_audioMessages",self.dbData_view)).json()['result'] # sends a post request to the 'view_audioMessages' route of the AWS server to fetch all the data about all the audio messages associated with that user
+        if response == 'none':
+            self.numMessages = 0
+            self.audioMessages = []
+        else:
+            self.audioMessages = response
+            self.numMessages = self.audioMessages["length"]
         self.numPages = int(math.ceil(self.numMessages / 3))
         self.currentPage = 0
         self.currentMessage = -3
@@ -321,6 +430,7 @@ class MessageResponses_add(Screen, MDApp):
         except:
             pass
         self.create_audioMessages(1, 3)
+
 
     def create_audioMessages(self, currentPage, currentMessage):
         # method which displays the user's current audio messages and allows users to create new personalised audio messages which can be played through the doorbell
@@ -440,6 +550,13 @@ class MessageResponses_add(Screen, MDApp):
         print("Create new audio message")
         # user can create new audio message
 
+    def dismissDialog(self, instance):
+        # method which is called when 'Cancel' is tapped on the dialog box
+        self.dialog.dismiss()  # closes the dialog box
+
+    def login(self, instance):
+        self.manager.current = 'SignIn'
+
 
     def cancelRespond_dialog(self):
         self.dialog = MDDialog(
@@ -453,11 +570,10 @@ class MessageResponses_add(Screen, MDApp):
         self.dialog.open()  # opens the dialog box
 
     def cancelRespond(self, instance):
-        global updateFaces
         self.dialog.dismiss()
-        self.manager.current = "Homepage"
-        if updateFaces == True:
+        if self.manager.get_screen('VisitorImage').ids.visitorName.text == 'Face unknown':
             self.updateFaces_dialog()
+        self.manager.current = "Homepage"
 
 
     def previewMessage_dialog(self):
@@ -478,7 +594,6 @@ class MessageResponses_add(Screen, MDApp):
         self.dialog.open()  # opens the dialog box
 
     def transmitMessage(self, instance):
-        global updateFaces
         self.dialog.dismiss()
         MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
         mqtt = MQTTSessionDelegate.alloc().init()
@@ -489,7 +604,7 @@ class MessageResponses_add(Screen, MDApp):
             mqtt.publishData = str(self.messageID)
             mqtt.publishTopic = f"message/audio/{self.accountID}"
         mqtt.publish()
-        if updateFaces == True:
+        if self.manager.get_screen('VisitorImage').ids.visitorName.text == 'Face unknown':
             self.updateFaces_dialog()
 
     def updateFaces_dialog(self):
@@ -506,14 +621,14 @@ class MessageResponses_add(Screen, MDApp):
         self.dialog.open()  # opens the dialog box
 
     def update_knownFaces(self, instance):
-        global faceID, updateFaces
+        global faceID
         self.dialog.dismiss()
-        updateFaces = False
         for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the visitor
             if isinstance(object, MDTextField):
                 faceName = object.text
         data_knownFaces = {"faceName": faceName, "faceID": faceID}
         requests.post(serverBaseURL + "/update_knownFaces", data_knownFaces)
+        self.manager.get_screen('VisitorImage').ids.visitorName.text = faceName
 
 
     def dismissDialog(self, instance):
@@ -758,7 +873,16 @@ class MessageResponses_viewAudio(MessageResponses_view, Screen, MDApp):
         self.dbData_update["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData_update'
         self.dbData_update["initialCreation"] = str(self.initialRecording)  # adds the variable 'initialRecording' to the dictionary 'dbData_update'
         response = requests.post(serverBaseURL + "/update_audioMessages", self.dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
-        self.uploadAWS()  # calls the method to upload the audio message data to AWS S3
+        try: # wav file to be uploaded to AWS only exists if a new audio message has been recorded - else if the audio message name has just been changed, the statement will break
+            self.uploadAWS()  # calls the method to upload the audio message data to AWS S3
+        except:
+            pass
+        self.loggedIn = jsonStore.get("localData")["loggedIn"]
+        self.paired = jsonStore.get("localData")["paired"]
+        jsonStore.put("localData", initialUse="False", loggedIn=self.loggedIn, accountID=self.accountID, paired = self.paired)
+        self.manager.transition = NoTransition()  # creates a cut transition type
+        self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
+        self.manager.current_screen.__init__()  # creates a new instance of the 'MessageResponses_add' class
 
     def uploadAWS(self):
         # method which sends the data for the audio message recorded by the user as a pkl file to the AWS elastic beanstalk environment, where it is uploaded to AWS s3 using 'boto3' module
@@ -770,11 +894,7 @@ class MessageResponses_viewAudio(MessageResponses_view, Screen, MDApp):
                                  data=self.uploadData)  # sends post request to 'uploadS3' route on AWS server to upload the pkl file storing the data about the audio message to AWS s3 using 'boto3'
         # This is done because the 'boto3' module cannot be installed on mobile phones so the process of uploading the pkl file to AWS s3 using boto3 must be done remotely on the AWS elastic beanstalk environment
         os.remove(join(filepath, "audioMessage_tmp.pkl"))
-        self.loggedIn = jsonStore.get("localData")["loggedIn"]
-        jsonStore.put("localData", initialUse="False", loggedIn=self.loggedIn, accountID=self.accountID)
-        self.manager.transition = NoTransition()  # creates a cut transition type
-        self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
-        self.manager.current_screen.__init__()  # creates a new instance of the 'MessageResponses_add' class
+
 
     def play_audioMessage(self):
         # method which allows user to playback the audio message which they have recorded
@@ -815,6 +935,10 @@ class MessageResponses_viewAudio(MessageResponses_view, Screen, MDApp):
         time.sleep(self.audioLength)
         self.ids.playbackAudio.source = self.playbackAudio_static
 
+    def delete_tmpAudio(self):
+        if os.path.isfile(join(filepath, "audioMessage_tmp.pkl")):
+            print('delete')
+            os.remove(join(filepath, "audioMessage_tmp.pkl"))
 
 class MessageResponses_createText(MessageResponses_view, Screen, MDApp):
     def __init__(self, **kw):
@@ -845,7 +969,8 @@ class MessageResponses_createText(MessageResponses_view, Screen, MDApp):
         self.dbData_update["initialCreation"] = str(self.initialTyping)  # adds the variable 'initialRecording' to the dictionary 'dbData_update'
         response = requests.post(serverBaseURL + "/update_audioMessages",self.dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
         self.loggedIn = jsonStore.get("localData")["loggedIn"]
-        jsonStore.put("localData", initialUse="False", loggedIn=self.loggedIn, accountID=self.accountID)
+        self.paired = jsonStore.get("localData")["paired"]
+        jsonStore.put("localData", initialUse="False", loggedIn=self.loggedIn, accountID=self.accountID, paired = self.paired)
         self.manager.transition = NoTransition()  # creates a cut transition type
         self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
         self.manager.current_screen.__init__()  # creates a new instance of the 'MessageResponses_add' class
@@ -863,6 +988,8 @@ class MessageResponses_createText(MessageResponses_view, Screen, MDApp):
                               d=0.03)  # end properties of the snackbar animation's closing motion
         animation.start(self.ids.snackbar)  # executes the closing animation
 
+class VisitorLog(Screen,MDApp):
+    pass
 
 class RingAlert(Screen, MDApp):
     pass
@@ -871,26 +998,43 @@ class VisitorImage(Screen, MDApp):
 
     def get_latestImage(self):
         self.accountID = jsonStore.get("localData")["accountID"]
-        data_accountID = {"accountID": self.accountID}
-        response = requests.post(serverBaseURL + "/latest_visitorLog", data_accountID).json()
-        visitID = response[0]
-        thread_visitorImage = Thread(target=visitorImage_thread, args=(visitID,)) # thread created so image is downloaded in the background, and so does not delay loading of screen
-        thread_visitorImage.setDaemon(True)
-        thread_visitorImage.start()
-        data_visitID = {"visitID": visitID}
-        response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
-        faceID = response[1]
-        confidence = response[2]
-        if confidence != "NO_FACE":  # confidence is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
-            data_faceID = {"faceID": str(faceID)}
-            faceName = None
-            while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-                faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
-            if faceName == "":
-                faceName = "Face unknown"
+        if self.accountID == '':
+            self.dialog = MDDialog(
+                title="Sorry! Please login to your account to view your SmartBell's latest image.",
+                auto_dismiss=False,
+                type="custom",
+                buttons=[MDFlatButton(text="CANCEL", text_color=((128 / 255), (128 / 255), (128 / 255), 1),
+                                      on_press=self.dismissDialog),
+                         MDRaisedButton(text='OK', md_bg_color=(136 / 255, 122 / 255, 239 / 255, 1),
+                                        on_press=self.login)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
+
+        dbData_accountID = {"accountID": self.accountID}
+        response = requests.post(serverBaseURL + "/latest_visitorLog", dbData_accountID).json()['result']
+        print(response)
+        if response == 'none':
+            self.manager.get_screen(
+                'Homepage').ids.snackbar.text = 'No images captured by SmartBell on your account\n'
+            self.manager.current = 'Homepage'
+            self.manager.get_screen('Homepage').snackbar()
         else:
-            faceName = "No face identified"
-        self.ids.visitorName.text = faceName
+            visitID = response[0]
+            thread_visitorImage = Thread(target=visitorImage_thread, args=(visitID,)) # thread created so image is downloaded in the background, and so does not delay loading of screen
+            thread_visitorImage.setDaemon(True)
+            thread_visitorImage.start()
+            data_visitID = {"visitID": visitID}
+            response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
+            faceID = response[1]
+            confidence = response[2]
+            if confidence != "NO_FACE":  # confidence is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
+                data_faceID = {"faceID": str(faceID)}
+                faceName = None
+                while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
+                    faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
+                if faceName == "":
+                    faceName = "Face unknown"
+            else:
+                faceName = "No face identified"
+            self.ids.visitorName.text = faceName
 
 
     def cancelRespond_dialog(self):
@@ -906,11 +1050,54 @@ class VisitorImage(Screen, MDApp):
 
     def cancelRespond(self, instance):
         self.dialog.dismiss()
+        if self.ids.visitorName.text == 'Face unknown':
+            self.updateFaces_dialog()
         self.manager.current = "Homepage"
+
+    def updateFaces_dialog(self):
+        # markup used to increase accessibility and usability
+        self.dialog = MDDialog(
+            title="Enter visitor's name so SmartBell can identify them next time:",
+            auto_dismiss=False,
+            type="custom",
+            content_cls = nameMessage_content(),
+            buttons=[MDFlatButton(text="CANCEL", text_color=((128 / 255), (128 / 255), (128 / 255), 1),
+                                  on_press=self.dismissDialog),
+                     MDRaisedButton(text="SAVE",
+                                    on_press=self.update_knownFaces)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
+        self.dialog.open()  # opens the dialog box
+
+    def update_knownFaces(self, instance):
+        global faceID
+        self.dialog.dismiss()
+        for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the visitor
+            if isinstance(object, MDTextField):
+                faceName = object.text
+        data_knownFaces = {"faceName": faceName, "faceID": faceID}
+        requests.post(serverBaseURL + "/update_knownFaces", data_knownFaces)
+        self.ids.visitorName.text = faceName
 
     def dismissDialog(self, instance):
         # method which is called when 'Cancel' is tapped on the dialog box
         self.dialog.dismiss()  # closes the dialog box
+
+    def login(self, instance):
+        self.manager.current = 'SignIn'
+
+
+def openSnackbar(self):
+    # method which controls the opening animation of the snackbar
+    animation = Animation(pos_hint={"center_x": 0.5, "top": 0.095},
+                          d=0.03)  # end properties of the snackbar animation's opening motion
+    animation.start(self.ids.snackbar)  # executes the opening animation
+
+
+def dismissSnackbar(self):
+    # method which controls the closing animation of the snackbar
+    time.sleep(3.5)  # delay before snackbar is closed
+    animation = Animation(pos_hint={"center_x": 0.5, "top": 0},
+                          d=0.03)  # end properties of the snackbar animation's closing motion
+    animation.start(self.ids.snackbar)  # executes the closing animation
 
 class nameMessage_content(BoxLayout):
     # 'nameMessage_content' class creates the specific graphic elements for the dialog box which allows the user to enter the name of the audio message. The GUI is created in the kv file.
@@ -943,6 +1130,7 @@ def visitorImage_thread(visitID):
         visitorImage)  # accesses screen ids and adds the visitor image as a widget to a nested float layout
     MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0
 
+
 def createThread_ring(accountID):
     MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
     mqtt = MQTTSessionDelegate.alloc().init()
@@ -955,10 +1143,12 @@ def createThread_ring(accountID):
     thread_ring.start()
 
 
-def createThread_visit(mqtt):
-    thread_visit = Thread(target=visitThread, args=(mqtt,))
+def createThread_visit(visitID):
+    thread_visit = Thread(target=visitThread, args=(visitID,))
     thread_visit.setDaemon(True)
     thread_visit.start()
+
+
 
 
 def ringThread(mqtt):
@@ -974,10 +1164,13 @@ def ringThread(mqtt):
             while response_text == "error":
                 response = requests.post(serverBaseURL + "/downloadS3", downloadData)
                 response_text = response.text
+                print(response_text)
+            createThread_visit(visitID) # visit thread only called once doorbell is rung to save battery life
             visitorImage_data = response.content
             f = open(join(filepath, 'visitorImage.png'), 'wb')
             f.write(visitorImage_data)
             f.close()
+            time.sleep(0.2) # delay to save image
             MDApp.get_running_app().manager.current = "VisitorImage"
             visitorImage = AsyncImage(source=join(filepath, 'visitorImage.png'),
                                       pos_hint={"center_x": 0.5,
@@ -987,37 +1180,63 @@ def ringThread(mqtt):
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
                 visitorImage)  # accesses screen ids and adds the visitor image as a widget to a nested float layout
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0
-            createThread_visit(mqtt) # visit thread only called once doorbell is rung to save battery life
         else:
             time.sleep(3) # save battery as looping less often
 
-def visitThread(mqtt):
-    global updateFaces, faceID
+def visitThread(visitID):
+    global faceID
     while True:
-        if mqtt.messageReceived_visit == 1:
-            updateFaces = False  # reset value of updateFaces
-            mqtt.messageReceived_visit = 0
-            visitID = str(mqtt.messageData.UTF8String())
-            data_visitID = {"visitID": visitID}
-            response = None
-            while response == None:  # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-                response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
-            faceID = response[1]
-            confidence = response[2]
-            if confidence != "NO_FACE":  # confidence is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
-                data_faceID = {"faceID": str(faceID)}
-                faceName = None
-                while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-                    faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
-                if faceName == "":
-                    faceName = "Face unknown"
-                    updateFaces = True
-            else:
-                faceName = "No face identified"
-            MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorName.text = faceName
+        data_visitID = {"visitID": visitID}
+        response = None
+        while response == None:  # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
+            response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
+            time.sleep(1)
+        faceID = response[1]
+        confidence = response[2]
+        if confidence != "NO_FACE":  # confidence is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
+            data_faceID = {"faceID": str(faceID)}
+            faceName = None
+            while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
+                faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
+            if faceName == "":
+                faceName = "Face unknown"
+        else:
+            faceName = "No face identified"
+        MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorName.text = faceName
+        break
+
+def pairThread(accountID, id, pairing):
+    start_time = time.time()
+    dbData_id = {'id': id}
+    while True:
+        response = (requests.post(serverBaseURL + "/verifyPairing", dbData_id).json())['result'] # sends post request to 'verifyAccount' route on AWS server to check whether the email address inputted is already associated with an account
+        print(response)
+        if response == accountID and pairing == True:
+            MDApp.get_running_app().manager.get_screen('Homepage').ids.snackbar.text = f"Successfully paired with SmartBell '{id}'!\n"
+            MDApp.get_running_app().manager.get_screen('Homepage').snackbar()
+            loggedIn = jsonStore.get("localData")["loggedIn"]
+            accountID = jsonStore.get("localData")["accountID"]
+            jsonStore.put("localData", initialUse="False", loggedIn=loggedIn, accountID=accountID,paired=id)
+            print(jsonStore.get('localData')['paired'])
             break
+        elif response == '' and pairing == False:
+            MDApp.get_running_app().manager.get_screen(
+                'Homepage').ids.snackbar.text = f"Successfully unpaired from SmartBell '{id}'\n"
+            MDApp.get_running_app().manager.get_screen('Homepage').snackbar()
+            break
+        elif response != accountID and response != None and response != '' and pairing == True:
+            MDApp.get_running_app().manager.get_screen(
+                'Homepage').ids.snackbar.text = 'Error pairing SmartBell. Please ensure you\ninput the correct name for your SmartBell\n'
+            MDApp.get_running_app().manager.get_screen('Homepage').snackbar()
+            break
+        elif time.time()- start_time > 60:
+            MDApp.get_running_app().manager.get_screen(
+                'Homepage').ids.snackbar.text = 'Error pairing SmartBell. Please ensure you\ninput the correct name for your SmartBell\n'
+            MDApp.get_running_app().manager.get_screen('Homepage').snackbar()
+            break
+        time.sleep(1)
 
-
+            
 
 
 

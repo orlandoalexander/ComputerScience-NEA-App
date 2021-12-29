@@ -84,9 +84,6 @@ Window.size = (470, 850)
 
 serverBaseURL = "http://nea-env.eba-6tgviyyc.eu-west-2.elasticbeanstalk.com/"  # base URL to access AWS elastic beanstalk environment
 
-while True:
-    res = requests.post(serverBaseURL + "/MQTT_ring")
-    print(res)
 
 class WindowManager(ScreenManager):
     # 'WindowManager' class used for transitions between GUI windows
@@ -116,17 +113,16 @@ class Launch(Screen, MDApp):
 
     def finishInitialising(self, dt):
         # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
-
         if self.loggedIn == "True":
             self.accountID = jsonStore.get("localData")["accountID"]
             # connect to MQTT broker to receive messages when visitor presses doorbell as already logged in
-            client = mqtt.Client()
-            client.username_pw_set(username="yrczhohs", password="qPSwbxPDQHEI")
-            client.on_connect = on_connect  # creates callback for successful connection with broker
-            client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
-            client.loop_start()  # creates thread which runs parallel to main thread
+            # client = mqtt.Client()
+            # client.username_pw_set(username="yrczhohs", password="qPSwbxPDQHEI")
+            # client.on_connect = on_connect  # creates callback for successful connection with broker
+            # client.connect("hairdresser.cloudmqtt.com", 18973)  # parameters for broker web address and port number
+            # client.loop_start()  # creates thread which runs parallel to main thread
             self.manager.transition = NoTransition()
-            self.manager.current = "VisitorImage"
+            self.manager.current = "Homepage"
            # self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
 
 
@@ -352,6 +348,30 @@ class Homepage(Screen, MDApp):
         self.manager.transition = NoTransition()  # creates a cut transition type
         self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
         self.manager.current_screen.__init__()
+
+    def pair_dialog(self):
+        self.dialog = MDDialog(
+            title='Enter the name of the SmartBell which you would like to pair with',
+            auto_dismiss=False,
+            type="custom",
+            content_cls=nameMessage_content(),  # content class
+            buttons=[MDFlatButton(text="CANCEL", text_color=((128 / 255), (128 / 255), (128 / 255), 1),
+                                  on_press=self.dismissDialog),
+                     MDRaisedButton(text="ENTER", md_bg_color=(136 / 255, 122 / 255, 239 / 255, 1),
+                                    on_press=self.pair)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
+        self.dialog.open()  # opens the dialog box
+
+    def dismissDialog(self, instance):
+        # method which is called when 'Cancel' is tapped on the dialog box
+        self.dialog.dismiss()  # closes the dialog box
+
+    def pair(self, instance):
+        self.dialog.dismiss()
+        for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the audio message they recorded/typed
+            if isinstance(object, MDTextField): # if the object is an MDTextField
+                print(object.text)
+
+
 
 
 class MessageResponses_add(Screen, MDApp):
@@ -894,6 +914,10 @@ class MessageResponses_createText(MessageResponses_review, Screen, MDApp):
         animation = Animation(pos_hint={"center_x": 0.5, "top": 0},
                               d=0.03)  # end properties of the snackbar animation's closing motion
         animation.start(self.ids.snackbar)  # executes the closing animation
+
+
+class VisitorLog(Screen,MDApp):
+    pass
 
 class RingAlert(Screen, MDApp):
     pass
