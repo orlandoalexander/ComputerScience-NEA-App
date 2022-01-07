@@ -64,18 +64,17 @@ class Launch(Screen, MDApp):
     def statusUpdate(self):
         self.filepath = MDApp.get_running_app().user_data_dir
 
-        self.jsonFilename = join(self.filepath,
+        jsonFilename = join(self.filepath,
                                  "jsonStore.json")  # if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
         # the 'join' class is used to create a single path name to the new file "self.jsonStore.json"
-        self.jsonStore = JsonStore(
-            self.jsonFilename)  # wraps the filename as a json object to store data locally on the mobile phone
+        self.jsonStore = JsonStore(jsonFilename)  # wraps the filename as a json object to store data locally on the mobile phone
         if not self.jsonStore.exists("localData"):
             self.jsonStore.put("localData", initialUse="True", loggedIn="False", accountID="", paired="False")
         self.initialUse = self.jsonStore.get("localData")[
             "initialUse"]  # variable which indicates that the app is running for the first time on the user's mobile
         self.loggedIn = self.jsonStore.get("localData")["loggedIn"]
-        self.accountID = self.jsonStore.get("localData")["accountID"]
         self.paired = self.jsonStore.get("localData")["paired"]
+        self.accountID = self.jsonStore.get("localData")["accountID"]
 
 
 class SignUp(Launch):  # launch first to avoid MRO issue - change order to get error log
@@ -716,7 +715,8 @@ class MessageResponses_createAudio(Launch):
         else:  # if the button to record audio is held for more than one second
             self.ids.button_recordAudio.disabled = True  # disables the button to record an audio message
             self.audioData = self.recordAudio.stop()  # calls the method which terminates the recording of the user's voice input and saves the audio data
-            with open(join(self.filepath, "audioMessage_tmp.pkl"),
+            self.path_audioMessageVoice = join(self.filepath, "audioMessage_tmp.pkl")
+            with open(self.path_audioMessageVoice,
                       "wb") as file:  # create pkl file with name equal to the messageID in write bytes mode
                 pickle.dump(self.audioData,
                             file)  # 'pickle' module serializes the data stored in the object (list) 'self.audioData' into a byte stream which is stored in pkl file
@@ -844,8 +844,9 @@ class MessageResponses_view(Launch):
         for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the audio message they recorded/typed
             if isinstance(object, MDTextField):  # if the object is an MDTextField
                 self.dbData_name = {}  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
+                self.name_audioMessage = object.text
                 self.dbData_name[
-                    "messageName"] = object.text  # adds the variable 'object.text' to the dictionary 'dbData_create'
+                    "messageName"] = self.name_audioMessage  # adds the variable 'object.text' to the dictionary 'dbData_create'
                 self.dbData_name[
                     "accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData_create'
                 response = requests.post(serverBaseURL + "/verify_messageName",
@@ -864,10 +865,10 @@ class MessageResponses_view(Launch):
                                            d=0.02)  # adds a sequential step to the animation object which moves the 'Save' button to its original position
                     animation.start(instance)  # starts the animation instance
                 else:  # if the user has inputted a name which is not already in use by that user and is 13 or less characters in length
-                    if (self.initialRecording == True and self.messageType == "Voice") or (
+                    if (self.initialRecording and self.messageType == "Voice") or (
                             self.initialTyping == True and self.messageType == "Text"):  # if this audio message has just been recorded
                         self.messageID = self.create_messageID()  # calls the method which creates a unique messageID for the audio message which the user has created
-                    if self.audioRename == True:  # if the user has played the audio message, then it will have been converted to a wav file already, so this wav file should be renamed with the newly created messageID
+                    if self.audioRename:  # if the user has played the audio message, then it will have been converted to a wav file already, so this wav file should be renamed with the newly created messageID
                         oldName = join(self.filepath, "audioMessage_tmp.wav")
                         newName = join(self.filepath, (self.messageID + ".wav"))
                         os.rename(oldName, newName)
@@ -903,6 +904,7 @@ class MessageResponses_view(Launch):
 class MessageResponses_viewAudio(MessageResponses_view):
     def __init__(self, **kw):
         super().__init__(**kw)
+        self.path_audioMessageVoice = join(self.filepath, "audioMessage_tmp.pkl")
         self.playbackAudio_gif = "SmartBell_playbackAudio.zip"  # loads the zip file used to create the audio playback gif
         self.playbackAudio_static = "SmartBell_playbackAudio.png"  # loads the image file of the audio playback static image
         self.initialRecording = True
@@ -941,21 +943,22 @@ class MessageResponses_viewAudio(MessageResponses_view):
         self.uploadData = {"bucketName": "nea-audio-messages",
                            "s3File": self.messageID}  # creates the dictionary which stores the metadata required to upload the personalised audio message to AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
         # if an audio message with the same messageID already exists, it will be overwritten
-        file = {"file": open(join(self.filepath, "audioMessage_tmp.pkl"),
+        file = {"file": open(self.path_audioMessageVoice,
                              "rb")}  # opens the file to be sent using Flask's 'request' method (which contains the byte stream of audio data) and stores the file in a dictionary
         response = requests.post(serverBaseURL + "/uploadS3", files=file,
                                  data=self.uploadData)  # sends post request to 'uploadS3' route on AWS server to upload the pkl file storing the data about the audio message to AWS s3 using 'boto3'
         # This is done because the 'boto3' module cannot be installed on mobile phones so the process of uploading the pkl file to AWS s3 using boto3 must be done remotely on the AWS elastic beanstalk environment
-        os.remove(join(self.filepath, "audioMessage_tmp.pkl"))
+        os.remove(self.path_audioMessageVoice)
 
     def play_audioMessage(self):
         # method which allows user to playback the audio message which they have recorded
+
         if os.path.isfile(join(self.filepath, (self.messageID + ".wav"))):
             self.fileName = join(self.filepath, self.messageID)
             print("wav on app")
         else:
-            if os.path.isfile(join(self.filepath, "audioMessage_tmp.pkl")):
-                self.fileName = join(self.filepath, "audioMessage_tmp")
+            if os.path.isfile(self.path_audioMessageVoice):
+                self.fileName = self.path_audioMessageVoice
                 with open(self.fileName + ".pkl", "rb") as file:
                     self.audioData = pickle.load(file)
                     file.close()  # closes the file
@@ -988,9 +991,8 @@ class MessageResponses_viewAudio(MessageResponses_view):
         self.ids.playbackAudio.source = self.playbackAudio_static
 
     def delete_tmpAudio(self):
-        if os.path.isfile(join(self.filepath, "audioMessage_tmp.pkl")):
-            print('delete')
-            os.remove(join(self.filepath, "audioMessage_tmp.pkl"))
+        if os.path.isfile(self.path_audioMessageVoice):
+            os.remove(self.path_audioMessageVoice)
 
 
 class MessageResponses_createText(MessageResponses_view):
