@@ -105,11 +105,14 @@ class Launch(Screen, MDApp):
             jsonFilename)# wraps the filename as a json object to store data locally on the mobile phone
         if not jsonStore.exists("localData"):
             jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "")
-        self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
-
-        self.loggedIn = jsonStore.get("localData")["loggedIn"]
+        self.statusUpdate()
         Clock.schedule_once(self.finishInitialising)# Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisationas the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
 
+    def statusUpdate(self):
+        self.initialUse = jsonStore.get("localData")[
+        "initialUse"]  # variable which indicates that the app is running for the first time on the user's mobile
+        self.loggedIn = jsonStore.get("localData")["loggedIn"]
+        print(self.initialUse, self.loggedIn)
 
     def finishInitialising(self, dt):
         # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
@@ -323,7 +326,7 @@ class SignIn(Screen, MDApp):
         animation.start(self.ids.snackbar)  # executes the closing animation
 
 
-class Homepage(Screen, MDApp):
+class Homepage(Screen, MDApp): # Launch first to avoid MRO issue - change to get error log
 
     def __init__(self, **kw):
         super().__init__(**kw)
