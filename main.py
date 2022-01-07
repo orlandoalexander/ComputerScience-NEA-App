@@ -357,8 +357,8 @@ class Homepage(Screen, MDApp):
                 pairing = True
                 pair_thread = Thread(target=pairThread, daemon=True, args=(self.accountID, id, pairing))
                 pair_thread.start()
-        MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
-        mqtt = MQTTSessionDelegate.alloc().init()
+        MQTT = autoclass('MQTT')
+        mqtt = MQTT.alloc().init()
         mqtt.publishData = publishData
         mqtt.publishTopic = f"id/{id}"
         mqtt.publish()
@@ -595,8 +595,8 @@ class MessageResponses_add(Screen, MDApp):
 
     def transmitMessage(self, instance):
         self.dialog.dismiss()
-        MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
-        mqtt = MQTTSessionDelegate.alloc().init()
+        MQTT = autoclass('MQTT')
+        mqtt = MQTT.alloc().init()
         if self.messageText != "Null":
             mqtt.publishData = str(self.messageText)
             mqtt.publishTopic = f"message/text/{self.accountID}"
@@ -997,6 +997,7 @@ class RingAlert(Screen, MDApp):
 class VisitorImage(Screen, MDApp):
 
     def get_latestImage(self):
+        global faceID
         self.accountID = jsonStore.get("localData")["accountID"]
         if self.accountID == '':
             self.dialog = MDDialog(
@@ -1132,8 +1133,8 @@ def visitorImage_thread(visitID):
 
 
 def createThread_ring(accountID):
-    MQTTSessionDelegate = autoclass('MQTTSessionDelegate')
-    mqtt = MQTTSessionDelegate.alloc().init()
+    MQTT = autoclass('MQTT')
+    mqtt = MQTT.alloc().init()
     mqtt.ringTopic = f"ring/{accountID}"
     mqtt.visitTopic = f"visit/{accountID}"
     mqtt.connect()  # connect to to mqtt broker
@@ -1180,6 +1181,7 @@ def ringThread(mqtt):
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
                 visitorImage)  # accesses screen ids and adds the visitor image as a widget to a nested float layout
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0
+            MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorName.text = "Loading..."
         else:
             time.sleep(3) # save battery as looping less often
 
