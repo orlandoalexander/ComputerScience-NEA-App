@@ -794,12 +794,12 @@ class recordAudio(Screen):
 class MessageResponses_view(Launch):
 
     def __init__(self, **kw):
+        Launch.statusUpdate(self)
         Screen.__init__(self, **kw) # only initialise the screen as no need to initialise Launch again as this takes user to homepage
         self.audioRename = False
 
     def set_messageDetails(self, messageDetails):
         # called when changing the content of an audio message (re-recording or re-typing)
-        print(Launch.statusUpdate(self))
         self.messageDetails = messageDetails
         self.messageID = self.messageDetails[0]
         self.messageName = self.messageDetails[1]
