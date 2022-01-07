@@ -1,5 +1,5 @@
 import os
-os.environ['KIVY_AUDIO'] = 'avplayer'
+os.environ['KIVY_AUDIO'] = 'avplayer' # control the kivy environment to ensure audio input can be accepted following audio output
 from kivymd.app import MDApp
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
@@ -53,17 +53,12 @@ class Launch(Screen, MDApp):
             jsonFilename)# wraps the filename as a json object to store data locally on the mobile phone
         if not jsonStore.exists("localData"):
             jsonStore.put("localData", initialUse="True", loggedIn="False", accountID = "", paired = "False")
-
-        self.initialUse = jsonStore.get("localData")["initialUse"]# variable which indicates that the app is running for the first time on the user's mobile
-        self.loggedIn = jsonStore.get("localData")["loggedIn"]
+        self.statusUpdate()
         Clock.schedule_once(self.finishInitialising)# Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisationas the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
-
 
     def finishInitialising(self, dt):
         # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
-
         if self.loggedIn == "True":
-            self.accountID = jsonStore.get("localData")["accountID"]
             createThread_ring(self.accountID)
             # connect to MQTT broker to receive messages when visitor presses doorbell as already logged in
             self.manager.transition = NoTransition()
@@ -77,7 +72,13 @@ class Launch(Screen, MDApp):
             self.manager.transition = NoTransition()
             self.manager.current = "SignIn"
 
-class SignUp(Screen, MDApp):
+    def statusUpdate(self):
+        self.initialUse = jsonStore.get("localData")[ "initialUse"]  # variable which indicates that the app is running for the first time on the user's mobile
+        self.loggedIn = jsonStore.get("localData")["loggedIn"]
+        self.accountID = jsonStore.get("localData")["accountID"]
+        self.paired = jsonStore.get("localData")["paired"]
+
+class SignUp(Launch, Screen, MDApp): # launch first to avoid MRO issue - change order to get error log
     # 'SignUp' class allows user to create an account
 
     def create_userAccount(self):
@@ -86,8 +87,6 @@ class SignUp(Screen, MDApp):
         self.surname_ok = False  # variable which indicates that a valid value has been inputted by the user
         self.email_ok = False  # variable which indicates that a valid value has been inputted by the user
         self.password_ok = False  # variable which indicates that a valid value has been inputted by the user
-        self.initialUse = jsonStore.get("localData")["initialUse"]
-        self.paired = jsonStore.get("localData")["paired"]
         if self.ids.firstName.text == "":  # if no data is inputted...
             self.ids.firstName_error.opacity = 1  # ...then an error message is displayed
         else:
@@ -172,6 +171,7 @@ class SignUp(Screen, MDApp):
             else:
                 jsonStore.put("localData", initialUse=self.initialUse,
                                    loggedIn="True", accountID = self.accountID, paired = self.paired) # updates json object to reflect that user has successfully created an account
+                Launch.statusUpdate(self) # update launch variables
 
                 # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in and have unique accountID
 
@@ -195,15 +195,13 @@ class SignUp(Screen, MDApp):
         animation.start(self.ids.snackbar)  # executes the closing animation
 
 
-class SignIn(Screen, MDApp):
+class SignIn(Launch, Screen, MDApp):
     # 'SignIn' class allows users to log into their account
 
     def signIn(self):
         # method called when user taps the Sign In button
         self.email_ok = False  # variable which indicates that a valid value has been inputted by the user
         self.password_ok = False  # variable which indicates that a valid value has been inputted by the user
-        self.initialUse = jsonStore.get("localData")["initialUse"]
-        self.paired = jsonStore.get("localData")["paired"]
         if self.ids.email.text == "":  # if no data is inputted...
             self.ids.email_error_blank.opacity = 1  # ...then an error message is displayed
             self.ids.email_error_invalid.opacity = 0  # invalid email error message is removed
@@ -246,7 +244,7 @@ class SignIn(Screen, MDApp):
             else:
                 self.id = response
                 jsonStore.put("localData", initialUse=self.initialUse, loggedIn="True", accountID = self.accountID, paired = self.id)  # updates json object to reflect that user has successfully signed in
-
+            Launch.statusUpdate(self) # update launch variables
 
             # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in
 
@@ -270,15 +268,10 @@ class SignIn(Screen, MDApp):
         animation.start(self.ids.snackbar)  # executes the closing animation
 
 
-class Homepage(Screen, MDApp):
+class Homepage(Launch, Screen, MDApp):
 
     def __init__(self, **kw):
         super().__init__(**kw)
-        self.initialUse = jsonStore.get("localData")["initialUse"]
-        self.loggedIn = jsonStore.get("localData")["loggedIn"]
-        self.paired = jsonStore.get("localData")["paired"]
-        self.accountID = jsonStore.get("localData")[
-            "accountID"]  # assigns the value of 'accounID' to the variable 'self.accountID' from the local jsonStore
         if self.paired == "False":
             title = f"Enter the name of the SmartBell which you would like to pair with:"
             self.pair_dialog(title)
@@ -340,6 +333,7 @@ class Homepage(Screen, MDApp):
                 self.newID = object.text
         if self.newID.lower() == 'unpair':
             jsonStore.put("localData", initialUse=self.initialUse, loggedIn=self.loggedIn, accountID=self.accountID, paired='False')
+            Launch.statusUpdate(self)  # update launch variables
             publishData = ""
             id = self.id
             pairing = False
@@ -384,14 +378,12 @@ class Homepage(Screen, MDApp):
         animation.start(self.ids.snackbar)  # executes the closing animation
 
 
-class MessageResponses_add(Screen, MDApp):
+class MessageResponses_add(Launch, Screen, MDApp):
     # 'MessageResponses_add' class allows user to add audio response messages to be played through the doorbell.
 
     def __init__(self, **kw):
         # assigns the constants which are used in the class and gets the data on existing audio messages
         super().__init__(**kw)
-        self.initialUse = jsonStore.get("localData")["initialUse"]  # assigns the value of 'initialUse' to the variable 'self.initialUse' from the local jsonStore
-        self.accountID = jsonStore.get("localData")["accountID"]  # assigns the value of 'accounID' to the variable 'self.accountID' from the local jsonStore
         if self.accountID == '':
             self.dialog = MDDialog(
                 title='Sorry! Please login to your account to create audio messages.',
@@ -763,11 +755,10 @@ class recordAudio(Screen):
         return self.audioData
 
 
-class MessageResponses_view(Screen, MDApp):
+class MessageResponses_view(Launch, Screen, MDApp):
 
     def __init__(self, **kw):
         super().__init__(**kw)
-        self.accountID = jsonStore.get("localData")["accountID"]  # assigns the value of 'accounID' to the variable 'self.accountID' from the local jsonStore
         self.audioRename = False
 
     def set_messageDetails(self, messageDetails):
@@ -877,9 +868,8 @@ class MessageResponses_viewAudio(MessageResponses_view, Screen, MDApp):
             self.uploadAWS()  # calls the method to upload the audio message data to AWS S3
         except:
             pass
-        self.loggedIn = jsonStore.get("localData")["loggedIn"]
-        self.paired = jsonStore.get("localData")["paired"]
         jsonStore.put("localData", initialUse="False", loggedIn=self.loggedIn, accountID=self.accountID, paired = self.paired)
+        Launch.statusUpdate(self)  # update launch variables
         self.manager.transition = NoTransition()  # creates a cut transition type
         self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
         self.manager.current_screen.__init__()  # creates a new instance of the 'MessageResponses_add' class
@@ -968,9 +958,8 @@ class MessageResponses_createText(MessageResponses_view, Screen, MDApp):
         self.dbData_update["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData_update'
         self.dbData_update["initialCreation"] = str(self.initialTyping)  # adds the variable 'initialRecording' to the dictionary 'dbData_update'
         response = requests.post(serverBaseURL + "/update_audioMessages",self.dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
-        self.loggedIn = jsonStore.get("localData")["loggedIn"]
-        self.paired = jsonStore.get("localData")["paired"]
         jsonStore.put("localData", initialUse="False", loggedIn=self.loggedIn, accountID=self.accountID, paired = self.paired)
+        Launch.statusUpdate(self)  # update launch variables
         self.manager.transition = NoTransition()  # creates a cut transition type
         self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
         self.manager.current_screen.__init__()  # creates a new instance of the 'MessageResponses_add' class
@@ -994,11 +983,10 @@ class VisitorLog(Screen,MDApp):
 class RingAlert(Screen, MDApp):
     pass
 
-class VisitorImage(Screen, MDApp):
+class VisitorImage(Launch, Screen, MDApp):
 
     def get_latestImage(self):
         global faceID
-        self.accountID = jsonStore.get("localData")["accountID"]
         if self.accountID == '':
             self.dialog = MDDialog(
                 title="Sorry! Please login to your account to view your SmartBell's latest image.",
@@ -1219,7 +1207,6 @@ def pairThread(accountID, id, pairing):
             loggedIn = jsonStore.get("localData")["loggedIn"]
             accountID = jsonStore.get("localData")["accountID"]
             jsonStore.put("localData", initialUse="False", loggedIn=loggedIn, accountID=accountID,paired=id)
-            print(jsonStore.get('localData')['paired'])
             break
         elif response == '' and pairing == False:
             MDApp.get_running_app().manager.get_screen(
