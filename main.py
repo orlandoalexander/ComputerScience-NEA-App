@@ -593,7 +593,7 @@ class MessageResponses_add(Launch):
 
     def cancelRespond(self, instance):
         self.dialog.dismiss()
-        if self.manager.get_screen('VisitorImage').ids.visitorName.text == 'Face unknown':
+        if self.manager.get_screen('VisitorImage').ids.faceName.text == 'Face unknown':
             self.updateFaces_dialog()
         self.manager.current = "Homepage"
 
@@ -625,7 +625,7 @@ class MessageResponses_add(Launch):
             mqtt.publishData = str(self.messageID)
             mqtt.publishTopic = f"message/audio/{self.accountID}"
         mqtt.publish()
-        if self.manager.get_screen('VisitorImage').ids.visitorName.text == 'Face unknown':
+        if self.manager.get_screen('VisitorImage').ids.faceName.text == 'Face unknown':
             self.updateFaces_dialog()
 
     def updateFaces_dialog(self):
@@ -649,7 +649,7 @@ class MessageResponses_add(Launch):
                 faceName = object.text
         data_knownFaces = {"faceName": faceName, "faceID": faceID}
         requests.post(serverBaseURL + "/update_knownFaces", data_knownFaces)
-        self.manager.get_screen('VisitorImage').ids.visitorName.text = faceName
+        self.manager.get_screen('VisitorImage').ids.faceName.text = faceName
 
     def dismissDialog(self, instance):
         # method which is called when 'Cancel' is tapped on the dialog box
@@ -715,8 +715,8 @@ class MessageResponses_createAudio(Launch):
         else:  # if the button to record audio is held for more than one second
             self.ids.button_recordAudio.disabled = True  # disables the button to record an audio message
             self.audioData = self.recordAudio.stop()  # calls the method which terminates the recording of the user's voice input and saves the audio data
-            self.path_audioMessageVoice = join(self.filepath, "audioMessage_tmp.pkl")
-            with open(self.path_audioMessageVoice,
+            self.path_messageVoice = join(self.filepath, "audioMessage_tmp.pkl")
+            with open(self.path_messageVoice,
                       "wb") as file:  # create pkl file with name equal to the messageID in write bytes mode
                 pickle.dump(self.audioData,
                             file)  # 'pickle' module serializes the data stored in the object (list) 'self.audioData' into a byte stream which is stored in pkl file
@@ -904,7 +904,7 @@ class MessageResponses_view(Launch):
 class MessageResponses_viewAudio(MessageResponses_view):
     def __init__(self, **kw):
         super().__init__(**kw)
-        self.path_audioMessageVoice = join(self.filepath, "audioMessage_tmp.pkl")
+        self.path_messageVoice = join(self.filepath, "audioMessage_tmp.pkl")
         self.playbackAudio_gif = "SmartBell_playbackAudio.zip"  # loads the zip file used to create the audio playback gif
         self.playbackAudio_static = "SmartBell_playbackAudio.png"  # loads the image file of the audio playback static image
         self.initialRecording = True
@@ -943,12 +943,12 @@ class MessageResponses_viewAudio(MessageResponses_view):
         self.uploadData = {"bucketName": "nea-audio-messages",
                            "s3File": self.messageID}  # creates the dictionary which stores the metadata required to upload the personalised audio message to AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
         # if an audio message with the same messageID already exists, it will be overwritten
-        file = {"file": open(self.path_audioMessageVoice,
+        file = {"file": open(self.path_messageVoice,
                              "rb")}  # opens the file to be sent using Flask's 'request' method (which contains the byte stream of audio data) and stores the file in a dictionary
         response = requests.post(serverBaseURL + "/uploadS3", files=file,
                                  data=self.uploadData)  # sends post request to 'uploadS3' route on AWS server to upload the pkl file storing the data about the audio message to AWS s3 using 'boto3'
         # This is done because the 'boto3' module cannot be installed on mobile phones so the process of uploading the pkl file to AWS s3 using boto3 must be done remotely on the AWS elastic beanstalk environment
-        os.remove(self.path_audioMessageVoice)
+        os.remove(self.path_messageVoice)
 
     def play_audioMessage(self):
         # method which allows user to playback the audio message which they have recorded
@@ -957,8 +957,8 @@ class MessageResponses_viewAudio(MessageResponses_view):
             self.fileName = join(self.filepath, self.messageID)
             print("wav on app")
         else:
-            if os.path.isfile(self.path_audioMessageVoice):
-                self.fileName = self.path_audioMessageVoice
+            if os.path.isfile(self.path_messageVoice):
+                self.fileName = self.path_messageVoice
                 with open(self.fileName + ".pkl", "rb") as file:
                     self.audioData = pickle.load(file)
                     file.close()  # closes the file
@@ -991,8 +991,8 @@ class MessageResponses_viewAudio(MessageResponses_view):
         self.ids.playbackAudio.source = self.playbackAudio_static
 
     def delete_tmpAudio(self):
-        if os.path.isfile(self.path_audioMessageVoice):
-            os.remove(self.path_audioMessageVoice)
+        if os.path.isfile(self.path_messageVoice):
+            os.remove(self.path_messageVoice)
 
 
 class MessageResponses_createText(MessageResponses_view):
@@ -1015,14 +1015,14 @@ class MessageResponses_createText(MessageResponses_view):
 
     def update_audioMessages(self):
         # method which updates the MySQL table to store the data about the audio message created by the user
-        self.textMessage = self.ids.textMessage.text
+        self.messageText = self.ids.messageText.text
         self.dbData_update = {}  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         self.dbData_update[
             "messageID"] = self.messageID  # adds the variable 'messageID' to the dictionary 'dbData_update'
         self.dbData_update[
             "messageName"] = self.messageName  # adds the variable 'messageName' to the dictionary 'dbData_update'
         self.dbData_update[
-            "messageText"] = self.textMessage  # adds the 'null' variable 'fileText' to the dictionary 'dbData_update'
+            "messageText"] = self.messageText  # adds the 'null' variable 'fileText' to the dictionary 'dbData_update'
         self.dbData_update[
             "accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData_update'
         self.dbData_update["initialCreation"] = str(
@@ -1060,7 +1060,7 @@ class RingAlert(Launch):
 
 class VisitorImage(Launch):
 
-    def get_latestImage(self):
+    def view_latesImage(self):
         global faceID
         if self.accountID == '':
             self.dialog = MDDialog(
@@ -1099,7 +1099,7 @@ class VisitorImage(Launch):
                     faceName = "Face unknown"
             else:
                 faceName = "No face identified"
-            self.ids.visitorName.text = faceName
+            self.ids.faceName.text = faceName
 
     def cancelRespond_dialog(self):
         self.dialog = MDDialog(
@@ -1114,7 +1114,7 @@ class VisitorImage(Launch):
 
     def cancelRespond(self, instance):
         self.dialog.dismiss()
-        if self.ids.visitorName.text == 'Face unknown':
+        if self.ids.faceName.text == 'Face unknown':
             self.updateFaces_dialog()
         self.manager.current = "Homepage"
 
@@ -1139,7 +1139,7 @@ class VisitorImage(Launch):
                 faceName = object.text
         data_knownFaces = {"faceName": faceName, "faceID": faceID}
         requests.post(serverBaseURL + "/update_knownFaces", data_knownFaces)
-        self.ids.visitorName.text = faceName
+        self.ids.faceName.text = faceName
 
     def dismissDialog(self, instance):
         # method which is called when 'Cancel' is tapped on the dialog box
@@ -1244,7 +1244,7 @@ def ringThread(mqtt):
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
                 visitorImage)  # accesses screen ids and adds the visitor image as a widget to a nested float layout
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0
-            MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorName.text = "Loading..."
+            MDApp.get_running_app().manager.get_screen('VisitorImage').ids.faceName.text = "Loading..."
         else:
             time.sleep(3)  # save battery as looping less often
 
@@ -1268,7 +1268,7 @@ def visitThread(visitID):
                 faceName = "Face unknown"
         else:
             faceName = "No face identified"
-        MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorName.text = faceName
+        MDApp.get_running_app().manager.get_screen('VisitorImage').ids.faceName.text = faceName
         break
 
 

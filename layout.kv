@@ -279,7 +279,7 @@ WindowManager: #initiates and orders all screens/classes
             pos_hint: {"x": 0.15, "y": 0.52}
             on_press:
                 root.manager.current = "VisitorImage"
-                root.manager.current_screen.get_latestImage()
+                root.manager.current_screen.view_latestImage()
 
         Button:
             id: button_visitorLog
@@ -668,7 +668,7 @@ WindowManager: #initiates and orders all screens/classes
             keep_ratio: False #allows image proportions to be altered so that it fills the screen
 
         MDTextField:
-            id: textMessage #unique identifier for this specific textfield
+            id: messageText #unique identifier for this specific textfield
             hint_text: "Enter text for audio message" #hint text indicates what data the user should input into this text field
             size_hint_x: 0.765
             pos_hint: {"center_x": 0.5, "center_y": 0.7} #position of text field relative to screen
@@ -681,7 +681,7 @@ WindowManager: #initiates and orders all screens/classes
             size_hint: 0.43,0.1
             pos_hint: {"center_x": 0.74, "y": 0.2}
             on_press:
-                root.save_textMessage()  #calls the method 'save_textMessage' from the parent class in the Python application
+                root.save_messageText()  #calls the method 'save_messageText' from the parent class in the Python application
 
         Button:
             id: button_cancelAudio #unique identifier for this specific image
@@ -790,7 +790,7 @@ WindowManager: #initiates and orders all screens/classes
             pos_hint: {"center_x":0.5,"center_y": 0.5} #position of image relative to parent screen
 
         Label:
-            id: visitorName
+            id: faceName
             text: "Loading..."
             text_size: self.size # dimensions for text
             font_size: 28 # font size for text
