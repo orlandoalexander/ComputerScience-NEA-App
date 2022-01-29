@@ -14,6 +14,7 @@ WindowManager: #initiates and orders all screens/classes
     VisitorLog:
 
 
+
 <MDTextField>
 #creates default settings for MDTextField objects
     mode: "line" #default mode for text field is a rectangle
@@ -144,7 +145,7 @@ WindowManager: #initiates and orders all screens/classes
             id: signUp_button #unique identifier for this specific button
             size_hint: 0.5, 0.11 #size of button relative to screen
             pos_hint: {"center_x": 0.7, "center_y": 0.19} #position of button relative to screen
-            on_press: root.create_userAccount() #calls Python method 'create_userAccount'
+            on_press: root.createAccount() #calls Python method 'createAccount'
 
         Button:
             id: signIn_button #unique identifier for this specific button
@@ -279,7 +280,7 @@ WindowManager: #initiates and orders all screens/classes
             pos_hint: {"x": 0.15, "y": 0.52}
             on_press:
                 root.manager.current = "VisitorImage"
-                root.manager.current_screen.view_latestImage()
+                root.manager.current_screen.viewImage()
 
         Button:
             id: button_visitorLog
@@ -296,10 +297,11 @@ WindowManager: #initiates and orders all screens/classes
                 root.manager.current_screen.__init__()
 
         Button:
-            id: button_login #unique identifier for this specific button
+            id: button_account #unique identifier for this specific button
             pos_hint: {"center_x": 0.85, "center_y": 0.07}
             size_hint: 0.2,0.1
-            on_press: root.manager.current = "SignIn"
+            on_press: root.account()
+
         Label:
             id: snackbar #unique identifier for this specific label
             canvas.before:
@@ -367,13 +369,13 @@ WindowManager: #initiates and orders all screens/classes
             id: button_forward #unique identifier for this specific button
             pos_hint: {"center_x": 0.85, "center_y": 0.07}
             size_hint: 0.2,0.1
-            on_press: root.create_audioMessages(1, 3) # calls parent method 'create_audioMessages' with the arguments (1,3) to indicate that the forward button has been pressed
+            on_press: root.audioMessages_create(1, 3) # calls parent method 'audioMessages_create' with the arguments (1,3) to indicate that the forward button has been pressed
 
         Button:
             id: button_backward #unique identifier for this specific button
             pos_hint: {"center_x": 0.15, "center_y": 0.07}
             size_hint: 0.2,0.1
-            on_press: root.create_audioMessages(-1,-3) # calls parent method 'create_audioMessages' with the arguments (-1,-3) to indicate that the backwards button has been pressed
+            on_press: root.audioMessages_create(-1,-3) # calls parent method 'audioMessages_create' with the arguments (-1,-3) to indicate that the backwards button has been pressed
 
         Button:
             id: button_audioMessage_1
@@ -607,7 +609,7 @@ WindowManager: #initiates and orders all screens/classes
             size_hint: 0.45,0.1
             pos_hint: {"center_x": 0.74, "center_y": 0.25}
             on_press:
-                root.play_audioMessage() #calls the method 'play_audioMessage' from the parent class in the Python application
+                root.audioMessage_play() #calls the method 'audioMessage_play' from the parent class in the Python application
 
         Button:
             id: button_rerecordAudio #unique identifier for this specific image
@@ -630,7 +632,7 @@ WindowManager: #initiates and orders all screens/classes
             pos_hint: {"center_x": 0.15, "center_y": 0.07}
             size_hint: 0.2,0.1
             on_press:
-                root.delete_tmpAudio()
+                root.tmpAudio_delete()
                 if root.initialRecording == False: root.manager.current = "MessageResponses_add"
                 elif root.initialRecording == True: root.manager.current = root.manager.previous()
                 root.manager.current_screen.__init__()
@@ -640,7 +642,7 @@ WindowManager: #initiates and orders all screens/classes
             pos_hint: {"center_x": 0.52, "center_y": 0.07}
             size_hint: 0.2,0.1
             on_press:
-                root.delete_tmpAudio()
+                root.tmpAudio_delete()
                 root.manager.current = "Homepage"
 
         Button:
@@ -681,7 +683,7 @@ WindowManager: #initiates and orders all screens/classes
             size_hint: 0.43,0.1
             pos_hint: {"center_x": 0.74, "y": 0.2}
             on_press:
-                root.save_messageText()  #calls the method 'save_messageText' from the parent class in the Python application
+                root.saveMessage()  #calls the method 'saveMessage' from the parent class in the Python application
 
         Button:
             id: button_cancelAudio #unique identifier for this specific image
@@ -836,8 +838,8 @@ WindowManager: #initiates and orders all screens/classes
 
 
 
-<nameMessage_content>:
-    name: "nameMessage_content"
+<DialogContent>:
+    name: "DialogContent"
     orientation: "vertical"
     size_hint_y: None
     height: "40dp"
