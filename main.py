@@ -182,7 +182,7 @@ class Homepage(Launch):
             response = (requests.post(serverBaseURL + "/checkPairing", dbData_id)).text
             if response == 'notExists':
                 self.ids.snackbar.text = f"No SmartBell with the name '{self.piID}' exists!\n"
-                self.topHeight =0.095
+                self.topHeight = 0.095
                 self.sleepTime = 5
                 self.openSnackbar() # calls the method which creates the snackbar animation
                 thread_dismissSnackbar = Thread(target=self.dismissSnackbar, args=(),
@@ -1196,14 +1196,15 @@ def visitThread(visitID):
 def pairThread(accountID, id, pairing, jsonStore):
     start_time = time.time()
     dbData_id = {'id': id}
+    MDApp.get_running_app().manager.get_screen('Homepage').topHeight = 0.095
+    MDApp.get_running_app().manager.get_screen('Homepage').sleepTime = 5
     while True:
         response = (requests.post(serverBaseURL + "/verifyPairing", dbData_id).json())[
             'result']  # sends post request to 'verifyAccount' route on AWS server to check whether the email address inputted is already associated with an account
-        print(response)
         if response == accountID and pairing == True:
             MDApp.get_running_app().manager.get_screen(
                 'Homepage').ids.snackbar.text = f"Successfully paired with SmartBell '{id}'!\n"
-            MDApp.get_running_app().manager.get_screen('Homepage').snackbar()
+            MDApp.get_running_app().manager.get_screen('Homepage').openSnackbar()
             loggedIn = jsonStore.get("localData")["loggedIn"]
             accountID = jsonStore.get("localData")["accountID"]
             jsonStore.put("localData", initialUse=False, loggedIn=loggedIn, accountID=accountID, paired=id)
@@ -1211,19 +1212,22 @@ def pairThread(accountID, id, pairing, jsonStore):
         elif response == '' and pairing == False:
             MDApp.get_running_app().manager.get_screen(
                 'Homepage').ids.snackbar.text = f"Successfully unpaired from SmartBell '{id}'\n"
-            MDApp.get_running_app().manager.get_screen('Homepage').snackbar()
+            MDApp.get_running_app().manager.get_screen('Homepage').openSnackbar()
             break
         elif response != accountID and response != None and response != '' and pairing == True:
             MDApp.get_running_app().manager.get_screen(
                 'Homepage').ids.snackbar.text = 'Error pairing SmartBell. Please ensure you\ninput the correct name for your SmartBell\n'
-            MDApp.get_running_app().manager.get_screen('Homepage').snackbar()
+            MDApp.get_running_app().manager.get_screen('Homepage').openSnackbar()
             break
         elif time.time() - start_time > 60:
             MDApp.get_running_app().manager.get_screen(
                 'Homepage').ids.snackbar.text = 'Error pairing SmartBell. Please ensure you\ninput the correct name for your SmartBell\n'
-            MDApp.get_running_app().manager.get_screen('Homepage').snackbar()
+            MDApp.get_running_app().manager.get_screen('Homepage').openSnackbar()
             break
         time.sleep(1)
+    thread_dismissSnackbar = Thread(target=MDApp.get_running_app().manager.get_screen('Homepage').dismissSnackbar, args=(),
+                                    daemon=False)  # initialises an instance of the 'threading.Thread()' method
+    thread_dismissSnackbar.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
 
 
 if __name__ == "__main__":  # when the program is launched, if the name of the file is the main program (i.e. it is not a module being imported by another file) then this selection statement is True
