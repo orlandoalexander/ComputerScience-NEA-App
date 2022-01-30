@@ -173,7 +173,7 @@ class Homepage(Launch):
             publishData = ""
             id = self.piID
             pairing = False
-            pair_thread = Thread(target=pairThread, daemon=True, args=(self.accountID, id, pairing, self.jsonStore))
+            pair_thread = Thread(target=pairThread, args=(self.accountID, id, pairing, self.jsonStore))
             pair_thread.start()
         else:
             self.piID= newID
@@ -190,7 +190,7 @@ class Homepage(Launch):
                 thread_dismissSnackbar.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
             elif response == 'exists':
                 pairing = True
-                pair_thread = Thread(target=pairThread, daemon=True, args=(self.accountID, self.piID, pairing, self.jsonStore))
+                pair_thread = Thread(target=pairThread, args=(self.accountID, self.piID, pairing, self.jsonStore))
                 pair_thread.start()
         MQTT = autoclass('MQTT')
         mqtt = MQTT.alloc().init()
@@ -1121,17 +1121,14 @@ def createThread_ring(accountID, filepath):
     MQTT = autoclass('MQTT')
     mqtt = MQTT.alloc().init()
     mqtt.ringTopic = f"ring/{accountID}"
-    mqtt.visitTopic = f"visit/{accountID}"
     mqtt.connect()  # connect to to mqtt broker
     # mqtt must be instantiated outside of thread otherwise connection is unnsuccessful
     thread_ring = Thread(target=ringThread, args=(mqtt,filepath))
-    thread_ring.setDaemon(True)
     thread_ring.start()
 
 
 def createThread_visit(visitID):
     thread_visit = Thread(target=visitThread, args=(visitID,))
-    thread_visit.setDaemon(True)
     thread_visit.start()
 
 
@@ -1145,10 +1142,10 @@ def ringThread(mqtt, filepath):
             downloadData = {"bucketName": "nea-visitor-log",
                             "s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
             time.sleep(2)
-            response_text = "error"
-            while response_text == "error":
+            responseLength = 5
+            while responseLength == 5: # i.e. response is b'error'
                 response = requests.post(serverBaseURL + "/downloadS3", downloadData)
-                response_text = response.text
+                responseLength = len(response.content) # used to be response.text, but took ages to show image this way as has to convert bytes into text ascii characters
                 time.sleep(0.5)
             createThread_visit(visitID)  # visit thread only called once doorbell is rung to save battery life
             visitorImage_data = response.content
@@ -1160,7 +1157,6 @@ def ringThread(mqtt, filepath):
             visitorImage = AsyncImage(source=join(filepath, 'visitorImage.png'),
                                       pos_hint={"center_x": 0.5,
                                                 "center_y": 0.53})  # AsyncImage loads image as background thread
-            visitorImage.reload()  # reloads the image file to ensure the latest stored image is used
             mqtt.notifyPhone()
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
                 visitorImage)  # accesses screen ids and adds the visitor image as a widget to a nested float layout
