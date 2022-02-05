@@ -1099,12 +1099,14 @@ class MyApp(MDApp):
         return layout
 
 def visitorImage_thread(visitID, visitorImage_path):
-    createThread_visit(visitID)  # visit thread only called once doorbell is rung to save battery life
+    #createThread_visit(visitID)  # visit thread only called once doorbell is rung to save battery life
     # try:
     #     for visitorImage in MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.children:
     #         visitorImage.opacity = 0
     # except:
     #     pass
+    MDApp.get_running_app().manager.get_screen(
+        'VisitorImage').ids.faceName.text = 'Loading...'
     MDApp.get_running_app().manager.get_screen(
         'VisitorImage').ids.loading.opacity = 1  # reset opacity of image loading gif
     MDApp.get_running_app().manager.get_screen(
