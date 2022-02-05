@@ -835,6 +835,13 @@ WindowManager: #initiates and orders all screens/classes
         allow_stretch: True #allows image to be stretched so that it fills the screen
         keep_ratio: False #allows image proportions to be altered so that it fills the screen
 
+    Button:
+        id: button_homepage #unique identifier for this specific button
+        pos_hint: {"center_x": 0.52, "center_y": 0.07}
+        size_hint: 0.2,0.1
+        on_press:
+            root.manager.current = "Homepage"
+
 
 
 

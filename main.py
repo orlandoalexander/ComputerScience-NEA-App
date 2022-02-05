@@ -1021,7 +1021,10 @@ class VisitorImage(Launch):
             self.manager.get_screen(
                 'Homepage').ids.snackbar.text = 'No images captured by SmartBell on your account\n'
             self.manager.current = 'Homepage'
-            self.manager.get_screen('Homepage').snackbar()
+            self.manager.get_screen('Homepage').openSnackbar()  # calls the method which creates the snackbar animation
+            thread_dismissSnackbar = Thread(target=self.manager.get_screen('Homepage').dismissSnackbar, args=(),
+                                            daemon=False)  # initialises an instance of the 'threading.Thread()' method
+            thread_dismissSnackbar.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
         else:
             visitID = response[0]
             thread_visitorImage = Thread(target=visitorImage_thread, args=(
