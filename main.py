@@ -1097,10 +1097,11 @@ class MyApp(MDApp):
 def visitorImage_thread(visitID, filepath):
     downloadData = {"bucketName": "nea-visitor-log",
                     "s3File": visitID}  # creates the dictionary which stores the metadata required to download the pkl file of the image from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
-    response_text = "error"
-    while response_text == "error":
+    responseLength = 5
+    while responseLength == 5:  # i.e. response is b'error'
         response = requests.post(serverBaseURL + "/downloadS3", downloadData)
-        response_text = response.text
+        responseLength = len(
+            response.content)  # used to be response.text, but took ages to show image this way as has to convert bytes into text ascii characters
         time.sleep(0.5)
     visitorImage_data = response.content
     path_visitorImage = join(filepath, 'visitorImage.png')
