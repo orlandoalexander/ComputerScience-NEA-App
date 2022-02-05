@@ -1130,7 +1130,7 @@ def visitorImage_thread(visitID, visitorImage_path):
                                         "center_y": 0.53})  # AsyncImage loads image as background thread, so doesn't hold up running of program if there is a delay in loading the image
     MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
         visitorImage)  # accesses screen ids of 'VisitorImage' screen and adds the visitor image as a widget to a nested Kivy float layout MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
-
+    MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
 
 def createThread_ring(accountID, filepath):
     MQTTPython = autoclass(
@@ -1190,6 +1190,8 @@ def ringThread(mqtt, visitorImage_path):
             mqtt.notifyPhone()  # calls Objective-C method to play notification sound through mobile phone
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
                 visitorImage)  # accesses screen ids of 'VisitorImage' screen and adds the visitor image as a widget to a nested Kivy float layout MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
+            MDApp.get_running_app().manager.get_screen(
+                'VisitorImage').ids.loading.opacity = 0  # set opacity of image loading gif to zero as image is loaded and displayed
         else:
             time.sleep(3)  # reduce energy usage of mobile as checking status of 'messageReceived_ring' less frequently
 
