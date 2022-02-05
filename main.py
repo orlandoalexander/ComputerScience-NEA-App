@@ -192,8 +192,8 @@ class Homepage(Launch):
                 pairing = True
                 pair_thread = Thread(target=pairThread, args=(self.accountID, self.piID, pairing, self.jsonStore))
                 pair_thread.start()
-        MQTT = autoclass('MQTT')
-        mqtt = MQTT.alloc().init()
+        MQTTPython = autoclass('MQTT')
+        mqtt = MQTTPython.alloc().init()
         mqtt.publishData = publishData
         mqtt.publishTopic = f"id/{self.piID}"
         mqtt.publish()
@@ -593,8 +593,8 @@ class MessageResponses_add(Launch):
 
     def transmitMessage(self, instance):
         self.dialog.dismiss()
-        MQTT = autoclass('MQTT') # invoke with name of class
-        mqtt = MQTT.alloc().init()
+        MQTTPython = autoclass('MQTT') # invoke with name of class
+        mqtt = MQTTPython.alloc().init()
         if self.messageText != "Null":
             mqtt.publishData = str(self.messageText)
             mqtt.publishTopic = f"message/text/{self.accountID}"
@@ -1118,8 +1118,8 @@ def visitorImage_thread(visitID, filepath):
 
 
 def createThread_ring(accountID, filepath):
-    MQTT = autoclass('MQTT')
-    mqtt = MQTT.alloc().init()
+    MQTTPython = autoclass('MQTT')
+    mqtt = MQTTPython.alloc().init()
     mqtt.ringTopic = f"ring/{accountID}"
     mqtt.connect()  # connect to to mqtt broker
     # mqtt must be instantiated outside of thread otherwise connection is unnsuccessful
@@ -1135,8 +1135,7 @@ def createThread_visit(visitID):
 def ringThread(mqtt, filepath):
     while True:
         if mqtt.messageReceived_ring == 1:
-            mqtt.messageReceived_ring = 0  # value of 'messageReceived' must be set to 0 so that new messages can be received
-            mqtt.vibratePhone()
+            mqtt.messageReceived_ring = 0  # value of 'messageReceived' must be set to 0 so that new messages can be received.
             MDApp.get_running_app().manager.current = "RingAlert"
             visitID = str(mqtt.messageData.UTF8String())
             downloadData = {"bucketName": "nea-visitor-log",

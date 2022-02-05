@@ -369,13 +369,13 @@ WindowManager: #initiates and orders all screens/classes
             id: button_forward #unique identifier for this specific button
             pos_hint: {"center_x": 0.85, "center_y": 0.07}
             size_hint: 0.2,0.1
-            on_press: root.audioMessages_create(1, 3) # calls parent method 'audioMessages_create' with the arguments (1,3) to indicate that the forward button has been pressed
+            on_press: root.audioMessage_create(1, 3) # calls parent method 'audioMessage_create' with the arguments (1,3) to indicate that the forward button has been pressed
 
         Button:
             id: button_backward #unique identifier for this specific button
             pos_hint: {"center_x": 0.15, "center_y": 0.07}
             size_hint: 0.2,0.1
-            on_press: root.audioMessages_create(-1,-3) # calls parent method 'audioMessages_create' with the arguments (-1,-3) to indicate that the backwards button has been pressed
+            on_press: root.audioMessage_create(-1,-3) # calls parent method 'audioMessage_create' with the arguments (-1,-3) to indicate that the backwards button has been pressed
 
         Button:
             id: button_audioMessage_1
