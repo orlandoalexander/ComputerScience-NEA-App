@@ -1099,13 +1099,16 @@ class MyApp(MDApp):
         return layout
 
 def visitorImage_thread(visitID, visitorImage_path):
-    try:
-        for visitorImage in MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.children:
-            visitorImage.opacity = 0
-    except:
-        pass
+    createThread_visit(visitID)  # visit thread only called once doorbell is rung to save battery life
+    # try:
+    #     for visitorImage in MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.children:
+    #         visitorImage.opacity = 0
+    # except:
+    #     pass
     MDApp.get_running_app().manager.get_screen(
         'VisitorImage').ids.loading.opacity = 1  # reset opacity of image loading gif
+    MDApp.get_running_app().manager.get_screen(
+        'VisitorImage').ids.faceName.text = "Loading..."  # reset text of visitor image name label
     downloadData = {"bucketName": "nea-visitor-log",
                     "s3File": visitID}  # creates the dictionary which stores the metadata required to download the png file of the visitor image from AWS S3 (via the server rest API)
     responseLength = 5
@@ -1147,6 +1150,7 @@ def createThread_visit(visitID):
 def ringThread(mqtt, visitorImage_path):
     while True:
         if mqtt.messageReceived_ring == 1: # if message received on topic 'ring/accountID' by Objective-C MQTT session instance (i.e. SmartBell doorbell rung)
+            createThread_visit(visitID) # visit thread only called once doorbell is rung to save battery life
             try:
                 for visitorImage in MDApp.get_running_app().manager.get_screen(
                         'VisitorImage').ids.visitorImage.children:
@@ -1167,7 +1171,6 @@ def ringThread(mqtt, visitorImage_path):
                                          downloadData)  # request sent to custom rest API, which uses 'boto3' module to attempt to download the visitor image with name 'visitID' from AWS S3
                 responseLength = len(response.content)  # message content returned by rest API is decoded. If this decoded message is 'error', this indicates that the required image is not yet available and the while loop must continue looping
                 time.sleep(0.5)  # time delay to reduce number of requests to AWS API, reducing running costs
-            createThread_visit(visitID) # visit thread only called once doorbell is rung to save battery life
             visitorImage_data = response.content  # stores visitor image bytes data
             f = open(visitorImage_path,
                      'wb')  # opens file to store image bytes (opens in 'wb' format to enable bytes to be written to this file)
