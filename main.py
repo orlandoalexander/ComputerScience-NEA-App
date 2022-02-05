@@ -1109,24 +1109,25 @@ def visitorImage_thread(visitID, visitorImage_path):
         'VisitorImage').ids.loading.opacity = 1  # reset opacity of image loading gif
     MDApp.get_running_app().manager.get_screen(
         'VisitorImage').ids.faceName.text = "Loading..."  # reset text of visitor image name label
+
     downloadData = {"bucketName": "nea-visitor-log",
-                    "s3File": visitID}  # creates the dictionary which stores the metadata required to download the png file of the visitor image from AWS S3 (via the server rest API)
-    responseLength = 5
-    while responseLength == 5:  # if the visitor image uploaded by the Raspberry Pi is not yet available on AWS S3, then the error message 'error' will be returned, and the while loop will continue looping
-        response = requests.post(serverBaseURL + "/downloadS3", downloadData) # request sent to custom rest API, which uses 'boto3' module to attempt to download the visitor image with name 'visitID' from AWS S3
-        responseLength = len(response.content) # message content returned by rest API is decoded. If this decoded message is 'error', this indicates that the required image is not yet available and the while loop must continue looping
-        time.sleep(0.5) # time delay to reduce number of requests to AWS API, reducing running costs
-    visitorImage_data = response.content # stores visitor image bytes data
-    f = open(visitorImage_path, 'wb') # opens file to store image bytes (opens in 'wb' format to enable bytes to be written to this file)
-    f.write(visitorImage_data) # writes vistor image bytes data to the file
+                    "s3File": visitID}  # creates the dictionary which stores the metadata required to download the png file of the visitor image from AWS S3 (via the server REST API)
+    responseLength = 5  # length of message returned by REST API (b'error') if the  visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
+    while responseLength == 5:  # while loop continue looping if message returned by REST API is of length 5 (i.e. message is b'error'), as visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
+        response = requests.post(serverBaseURL + "/downloadS3",
+                                 downloadData)  # request sent to custom REST API, which uses 'boto3' module to attempt to download the visitor image with name 'visitID' from AWS S3
+        responseLength = len(response.content)  # finds length of message content returned by REST API
+        time.sleep(0.5)  # time delay to reduce number of requests to AWS API, reducing running costs
+    visitorImage_data = response.content  # stores visitor image bytes data
+    f = open(visitorImage_path,
+             'wb')  # opens file to store image bytes (opens in 'wb' format to enable bytes to be written to this file)
+    f.write(visitorImage_data)  # writes visitor image bytes data to the file
     f.close()
     visitorImage = AsyncImage(source=visitorImage_path,
                               pos_hint={"center_x": 0.5,
                                         "center_y": 0.53})  # AsyncImage loads image as background thread, so doesn't hold up running of program if there is a delay in loading the image
     MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
-        visitorImage)  # accesses screen ids and adds the visitor image as a widget to a nested float layout
-    MDApp.get_running_app().manager.get_screen(
-        'VisitorImage').ids.loading.opacity = 0  # set opacity of image loading gif to zero as image is loaded and displayed
+        visitorImage)  # accesses screen ids of 'VisitorImage' screen and adds the visitor image as a widget to a nested Kivy float layout MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
 
 
 def createThread_ring(accountID, filepath):
@@ -1150,42 +1151,45 @@ def createThread_visit(visitID):
 def ringThread(mqtt, visitorImage_path):
     while True:
         if mqtt.messageReceived_ring == 1: # if message received on topic 'ring/accountID' by Objective-C MQTT session instance (i.e. SmartBell doorbell rung)
-            createThread_visit(visitID) # visit thread only called once doorbell is rung to save battery life
-            try:
+            try:  # runs successfully if visitor image already exists on app
                 for visitorImage in MDApp.get_running_app().manager.get_screen(
                         'VisitorImage').ids.visitorImage.children:
-                    visitorImage.opacity = 0
-            except:
+                    # 'visitorImage' is a nested Kivy float layout, whose children are images of the visitor
+                    visitorImage.opacity = 0  # set the opacity of each existing vistor image to 0, so that the previous visitor image is not shown
+            except:  # if visitor image doesn’t already exist on app
                 pass
             mqtt.messageReceived_ring = 0  # value of 'messageReceived_ring' must be reset to 0 so that new messages can be detected in Python code
-            MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 1 # reset opacity of image loading gif
-            MDApp.get_running_app().manager.get_screen('VisitorImage').ids.faceName.text = "Loading..." # reset text of visitor image name label
-            mqtt.vibratePhone() # calls Objective-C method to vibrate mobile phone
-            MDApp.get_running_app().manager.current = "RingAlert" # open Kivy screen to notify user that the doorbell has been rung
-            visitID = str(mqtt.messageData.UTF8String()) # decode message published to topic 'ring/accountID' by Raspberry Pi doorbell
+            mqtt.vibratePhone()  # calls Objective-C method to vibrate mobile spacespacespMDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 1 # reset opacity of image loading gif          spacespacespMDApp.get_running_app().manager.get_screen('VisitorImage').ids.faceName.text = "Loading..." # reset text of visitor image name label
+            MDApp.get_running_app().manager.current = "RingAlert"  # open Kivy screen to notify user that the doorbell has been rung
+
+            visitID = str(
+                mqtt.messageData.UTF8String())  # decode message published to topic 'ring/accountID' by Raspberry Pi doorbell
+            createThread_visit(visitID) # visit thread only called once doorbell is rung to save battery life
             downloadData = {"bucketName": "nea-visitor-log",
-                            "s3File": visitID}  # creates the dictionary which stores the metadata required to download the png file of the visitor image from AWS S3 (via the server rest API)
-            responseLength = 5
-            while responseLength == 5:  # if the visitor image uploaded by the Raspberry Pi is not yet available on AWS S3, then the error message 'error' will be returned, and the while loop will continue looping
+                            "s3File": visitID}  # creates the dictionary which stores the metadata required to download the png file of the visitor image from AWS S3 (via the server REST API)
+            responseLength = 5  # length of message returned by REST API (b'error') if the  visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
+            while responseLength == 5:  # while loop continue looping if message returned by REST API is of length 5 (i.e. message is b'error'), as visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
                 response = requests.post(serverBaseURL + "/downloadS3",
-                                         downloadData)  # request sent to custom rest API, which uses 'boto3' module to attempt to download the visitor image with name 'visitID' from AWS S3
-                responseLength = len(response.content)  # message content returned by rest API is decoded. If this decoded message is 'error', this indicates that the required image is not yet available and the while loop must continue looping
+                                         downloadData)  # request sent to custom REST API, which uses 'boto3' module to attempt to download the visitor image with name 'visitID' from AWS S3
+                responseLength = len(response.content)  # finds length of message content returned by REST API
                 time.sleep(0.5)  # time delay to reduce number of requests to AWS API, reducing running costs
+
+            createThread_visit(visitID)  # visit thread only called once doorbell is rung to save battery life
             visitorImage_data = response.content  # stores visitor image bytes data
             f = open(visitorImage_path,
                      'wb')  # opens file to store image bytes (opens in 'wb' format to enable bytes to be written to this file)
-            f.write(visitorImage_data)  # writes vistor image bytes data to the file
+            f.write(visitorImage_data)  # writes visitor image bytes data to the file
             f.close()
             MDApp.get_running_app().manager.current = "VisitorImage"
             visitorImage = AsyncImage(source=visitorImage_path,
                                       pos_hint={"center_x": 0.5,
-                                                "center_y": 0.53})  # AsyncImage loads image as background thread, so doesn't hold up running of program if there is a delay in loading the image
-            mqtt.notifyPhone() # calls Objective-C method to play notification sound through mobile phone
+                                                "center_y": 0.53}) # AsyncImage loads image as background thread, so doesn't hold up running of program if there is a delay in loading the image
+
+            mqtt.notifyPhone()  # calls Objective-C method to play notification sound through mobile phone
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
-                visitorImage)  # accesses screen ids of 'VisitorImage' screen and adds the visitor image as a widget to a nested float layout
-            MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
+                visitorImage)  # accesses screen ids of 'VisitorImage' screen and adds the visitor image as a widget to a nested Kivy float layout MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
         else:
-            time.sleep(3)  # save battery as looping less often
+            time.sleep(3)  # reduce energy usage of mobile as checking status of 'messageReceived_ring' less frequently
 
 
 def visitThread(visitID):
