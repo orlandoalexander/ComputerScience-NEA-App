@@ -1099,14 +1099,11 @@ class MyApp(MDApp):
         return layout
 
 def visitorImage_thread(visitID, visitorImage_path):
-    #createThread_visit(visitID)  # visit thread only called once doorbell is rung to save battery life
-    # try:
-    #     for visitorImage in MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.children:
-    #         visitorImage.opacity = 0
-    # except:
-    #     pass
-    MDApp.get_running_app().manager.get_screen(
-        'VisitorImage').ids.faceName.text = 'Loading...'
+    try:
+        for visitorImage in MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.children:
+            visitorImage.opacity = 0
+    except:
+        pass
     MDApp.get_running_app().manager.get_screen(
         'VisitorImage').ids.loading.opacity = 1  # reset opacity of image loading gif
     MDApp.get_running_app().manager.get_screen(
@@ -1160,6 +1157,11 @@ def ringThread(mqtt, visitorImage_path):
                     visitorImage.opacity = 0  # set the opacity of each existing vistor image to 0, so that the previous visitor image is not shown
             except:  # if visitor image doesn’t already exist on app
                 pass
+            MDApp.get_running_app().manager.get_screen(
+                'VisitorImage').ids.loading.opacity = 1  # reset opacity of image loading gif
+            MDApp.get_running_app().manager.get_screen(
+                'VisitorImage').ids.faceName.text = "Loading..."  # reset text of visitor image name label
+
             mqtt.messageReceived_ring = 0  # value of 'messageReceived_ring' must be reset to 0 so that new messages can be detected in Python code
             mqtt.vibratePhone()  # calls Objective-C method to vibrate mobile spacespacespMDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 1 # reset opacity of image loading gif          spacespacespMDApp.get_running_app().manager.get_screen('VisitorImage').ids.faceName.text = "Loading..." # reset text of visitor image name label
             MDApp.get_running_app().manager.current = "RingAlert"  # open Kivy screen to notify user that the doorbell has been rung
