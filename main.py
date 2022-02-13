@@ -95,11 +95,10 @@ class Homepage(Launch):
             self.alreadyPaired_dialog()
 
     def account(self):
-        self.statusUpdate()
-        if self.loggedIn == True:
-            self.signOut_dialog()
-        else:
-            self.manager.current = "SignIn"
+        if self.loggedIn == True: # if user is currently logged into an account
+            self.signOut_dialog() # open dialog which gives user the option to sign out of their account
+        else: # if user is not logged into an account
+            self.manager.current = "SignIn" # switch to 'SignIn' screen
 
     def signOut(self, instance):
         self.dialog.dismiss()
@@ -303,7 +302,7 @@ class SignUp(Launch):  # launch first to avoid MRO issue - change order to get e
                 self.manager.transition = NoTransition()  # creates a cut transition type
 
                 if self.initialUse == True:
-                    self.manager.current = "MessageResponses_add"  # switches to 'Homepage' GUI
+                    self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
                     self.manager.current.__init__()
                 else:
                     self.manager.current = "Homepage"  # switches to 'Homepage' GUI
@@ -399,27 +398,26 @@ class MessageResponses_add(Launch):
         self.currentPage = 0
         self.currentMessage = -3
         self.previewMessages = False
+        try:
+            self.targetView.stop()  # close the target view
+        except:
+            pass
         Clock.schedule_once(
             self.finishInitialising)  # Kivy rules are not applied until the original Widget (MessageResponses_add) has finished instantiating, so must delay the initialisation
         # as the instantiation results in 1 of 2 methods (darkenImage() or audioMessage_create()) being called,
         # each of which requires access to Kivy ids to create the GUI and this is only possible if the instantiation is delayed
 
     def finishInitialising(self, dt):
-        # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
-        # as the instantiation results in 1 of 2 methods (darkenImage() or audioMessage_create()) being called, each of which requires access to Kivy ids to create the GUI
-        # and this is only possible if the instantiation is delayed.
-        try:
-            self.targetView.stop()  # close the target view
-        except:
-            pass
-        if self.initialUse == True and self.numMessages == 0:
-            self.animation = Animation(color = [1,1,1,0], duration = 0.1)
-            self.animation += Animation(color=[1, 1, 1, 0], duration= 1)
-            self.animation += Animation(color=[1, 1, 1, 1], duration=0.1)
-            self.animation += Animation(color=[1, 1, 1, 1], duration=1)
-            self.animation.repeat = True
-            self.animation.start(self.ids.plusIcon)
-        self.audioMessage_create(1, 3)
+        # applies initialisation processes which require access to Kivy ids
+        if self.initialUse == True and self.numMessages == 0: # if the mobile app is running for the first time and the user has zero audio messages
+            # create animation:
+            animation = Animation(color=[1, 1, 1, 0], duration=0.1)  # become invisible
+            animation += Animation(color=[1, 1, 1, 0], duration=1)  # invisible
+            animation += Animation(color=[1, 1, 1, 1], duration=0.1)  # become visible
+            animation += Animation(color=[1, 1, 1, 1], duration=1)  # visible
+            animation.repeat = True  # animation loops forever
+        animation.start(self.ids.plusIcon) # apply animation to image with id 'plusIcon'
+        self.audioMessage_create(1, 3) # calls method to display user's current audio messages
 
 
     def audioMessage_create(self, currentPage, currentMessage):
@@ -496,11 +494,13 @@ class MessageResponses_add(Launch):
 
     def addMessage_target(self):
         # instantiates a target view widget which is displayed on the first use of the app to explain to the user what it means to add an audio message
+        titleSpaces = '             '
+        descriptionSpaces = '              '
         self.targetView = MDTapTargetView(
             widget=self.ids.button_audioMessage_1,
-            title_text="             Add an audio message",
-            description_text="              You can create personalised\n              audio responses which can\n              be easily selected in the\n              SmartBell app and played by\n              "
-                             "your SmartBell when a visitor\n              comes to the door.",
+            title_text="{}Add an audio message".format(titleSpaces),
+            description_text="{0}You can create personalised\n{0}audio responses which can\n{0}be easily selected in the\n{0}SmartBell app and played by\n{0}"
+                             "your SmartBell when a visitor\n{0}comes to the door.".format(descriptionSpaces),
             widget_position="left_top",
             outer_circle_color=(49 / 255, 155 / 255, 254 / 255),
             target_circle_color=(145 / 255, 205 / 255, 241 / 255),
@@ -513,8 +513,6 @@ class MessageResponses_add(Launch):
     def openTarget(self):
         # method which controls the opening of the target view
         if self.targetView.state == "close":  # if the target view is currently closed
-            if self.initialUse == True:
-                self.animation.stop(self.ids.plusIcon)
             self.targetView.start()  # opens the target view
             self.ids.button_continueIcon.disabled = False  # activates the continue icon button
             animation = Animation(opacity=1,
@@ -1123,12 +1121,11 @@ def visitorImage_thread(visitID, visitorImage_path):
 
     downloadData = {"bucketName": "nea-visitor-log",
                     "s3File": visitID}  # creates the dictionary which stores the metadata required to download the png file of the visitor image from AWS S3 (via the server REST API)
-    responseLength = 5  # length of message returned by REST API (b'error') if the  visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
-    responseMessage = b'error'  # length of message returned by REST API (b'error') if the  visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
-    while responseMessage == b'error':  # while loop continue looping if message returned by REST API is of length 5 (i.e. message is b'error'), as visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
+    responseMessage = b'error'  # message returned by REST API if the  visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
+    while responseMessage == b'error':  # while loop continue looping if message returned by REST API is b'error', as visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
         response = requests.post(serverBaseURL + "/downloadS3",
                                  downloadData)  # request sent to custom REST API, which uses 'boto3' module to attempt to download the visitor image with name 'visitID' from AWS S3
-        responseMessage = response.content  # finds length of message content returned by REST API
+        responseMessage = response.content  # bytes content of message returned by REST API
         time.sleep(0.5)  # time delay to reduce number of requests to AWS API, reducing running costs
     visitorImage_data = responseMessage  # stores visitor image bytes data
     f = open(visitorImage_path,
@@ -1185,11 +1182,11 @@ def ringThread(mqtt, visitorImage_path):
             createThread_visit(visitID) # visit thread only called once doorbell is rung to reduce energy usage.
             downloadData = {"bucketName": "nea-visitor-log",
                             "s3File": visitID}  # creates the dictionary which stores the metadata required to download the png file of the visitor image from AWS S3 (via the server REST API)
-            responseMessage = b'error'  # length of message returned by REST API (b'error') if the  visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
-            while responseMessage == b'error':  # while loop continue looping if message returned by REST API is of length 5 (i.e. message is b'error'), as visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
+            responseMessage = b'error'  # message returned by REST API if the  visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
+            while responseMessage == b'error':  # while loop continue looping if message returned by REST API is b'error', as visitor image uploaded by the Raspberry Pi is not yet available on AWS S3
                 response = requests.post(serverBaseURL + "/downloadS3",
                                          downloadData)  # request sent to custom REST API, which uses 'boto3' module to attempt to download the visitor image with name 'visitID' from AWS S3
-                responseMessage = response.content  # finds length of message content returned by REST API
+                responseMessage = response.content  # bytes content of message returned by REST API
                 time.sleep(0.5)  # time delay to reduce number of requests to AWS API, reducing running costs
             visitorImage_data = responseMessage  # stores visitor image bytes data
             f = open(visitorImage_path,
