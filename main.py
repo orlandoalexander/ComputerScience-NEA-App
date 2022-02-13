@@ -67,6 +67,7 @@ class Launch(Screen, MDApp):
         self.loggedIn = self.jsonStore.get("localData")["loggedIn"]
         self.paired = self.jsonStore.get("localData")["paired"]
         self.accountID = self.jsonStore.get("localData")["accountID"]
+        print('logged in', self.loggedIn)
 
     def dismissDialog(self, instance):
         # method which is called when 'Cancel' is tapped on the dialog box
@@ -95,10 +96,8 @@ class Homepage(Launch):
             self.alreadyPaired_dialog()
 
     def account(self):
-        if self.loggedIn == True: # if user is currently logged into an account
-            self.signOut_dialog() # open dialog which gives user the option to sign out of their account
-        else: # if user is not logged into an account
-            self.manager.current = "SignIn" # switch to 'SignIn' screen
+        self.statusUpdate()
+        self.signOut_dialog() # open dialog which gives user the option to sign out of their account
 
     def signOut(self, instance):
         self.dialog.dismiss()
