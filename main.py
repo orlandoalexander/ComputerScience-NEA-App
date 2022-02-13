@@ -193,11 +193,11 @@ class SignUp(Launch):
     # 'SignUp' class allows user to create an account
 
     def createAccount(self):
-        # method called when user taps the Sign Up button
-        self.firstName_valid = False  # variable which indicates that a valid value has been inputted by the user
-        self.surnameValid = False  # variable which indicates that a valid value has been inputted by the user
-        self.emailValid = False  # variable which indicates that a valid value has been inputted by the user
-        self.passwordValid = False  # variable which indicates that a valid value has been inputted by the user
+        # method called when user taps the Sign Up button - checks validity of details entered by user
+        self.firstName_valid = False  # variable which indicates that a valid value for 'firstName' has been inputted by the user
+        self.surnameValid = False  # variable which indicates that a valid value for 'surname' has been inputted by the user
+        self.emailValid = False  # variable which indicates that a valid value for 'email' has been inputted by the user
+        self.passwordValid = False  # variable which indicates that a valid value for 'password' has been inputted by the user
         if self.ids.firstName.text == "":  # if no data is inputted...
             self.ids.firstName_error.opacity = 1  # ...then an error message is displayed
         else:
@@ -215,8 +215,7 @@ class SignUp(Launch):
             self.ids.email_error_invalid.opacity = 0  # invalid email error message is removed
         else:
             email = self.ids.email.text
-            if re.search("[@]", email) and re.search("[.]",
-                                                     email):  # checks that inputted email contains '@' symbol and '.' to verify the email address as a valid email format
+            if re.search(".+@.+\..+", email) != None:  # regular expression used to check that inputted email is in a valid email format
                 self.email = self.ids.email.text  # inputted email assigned to a variable
                 self.ids.email_error_blank.opacity = 0  # error message removed
                 self.ids.email_error_invalid.opacity = 0  # invalid email error message removed
@@ -229,24 +228,21 @@ class SignUp(Launch):
             self.ids.password_error_invalid.opacity = 0  # invalid password error message is removed
         else:
             password = self.ids.password.text
-            if (len(password) >= 8) and re.search("[a-z]", password) and re.search("[A-Z]", password) and re.search(
-                    "[0-9]", password) and re.search("[_@$!£#*%]", password):
-                # checks that inputted password is at least 8 characters and contains at least 1 lowercase character,
-                # 1 uppercase character, 1 digit and 1 special character" regular expression module used to search
-                # the inputted password for a variety of different requirements
+            if (len(password) >= 8) and re.search("[a-z][A-Z][0-9][_@$!£#*%]", password):
+                # Checks that inputted password is at least 8 characters
+                # Regular expression used to check that password contains at least 1 lowercase character,
+                # 1 uppercase character, 1 digit and 1 special character
                 self.password = self.ids.password.text  # inputted password assigned to a variable
-                self.hashedPassword = (hashlib.new("sha3_256",
-                                                   self.password.encode())).hexdigest()  # creates a hash of the user's password so that it is encrypted when it is stored on the database so more secure
-                # the hashing algorithm SHA3-256 is used by the 'hashlib' module to encrypt the UTF-8 encoded version
-                # of the password (the method 'encode()' UTF-8 encodes the plaintext password) the method 'hexdigest()'
+                self.hashedPassword = (hashlib.new("sha3_256", self.password.encode())).hexdigest()
+                # Creates a hash of the user's password so that it is encrypted when it is stored on the database, as it is sensitive data
+                # The hashing algorithm SHA3-256 is used by the 'hashlib' module to encrypt the UTF-8 encoded version
+                # of the password - the method 'encode()' UTF-8 encodes the plaintext password and the method 'hexdigest()'
                 # returns the hex value of the hashed password that has been created
                 self.ids.password_error_blank.opacity = 0  # error message removed
                 self.ids.password_error_invalid.opacity = 0  # invalid password error message is removed
                 self.passwordValid = True  # variable which indicates that a valid value has been inputted by the user
                 if self.firstName_valid and self.surnameValid and self.emailValid and self.passwordValid:  # checks if all the data values have been inputted and are valid
                     self.createAccountID()  # method called to create a unique accountID for the user
-                else:
-                    pass
             else:
                 self.ids.password_error_blank.opacity = 0  # blank data error message removed
                 self.ids.password_error_invalid.opacity = 1  # invalid password error message displayed
