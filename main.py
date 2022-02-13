@@ -228,7 +228,7 @@ class SignUp(Launch):
             self.ids.password_error_invalid.opacity = 0  # invalid password error message is removed
         else:
             password = self.ids.password.text
-            if (len(password) >= 8) and re.search("[a-z][A-Z][0-9][_@$!£#*%]", password):
+            if (len(password) >= 8) and re.search("[a-z][A-Z][0-9][_@$!£#*%]", password) != None:
                 # Checks that inputted password is at least 8 characters
                 # Regular expression used to check that password contains at least 1 lowercase character,
                 # 1 uppercase character, 1 digit and 1 special character
