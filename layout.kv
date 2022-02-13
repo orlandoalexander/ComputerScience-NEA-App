@@ -96,8 +96,9 @@ WindowManager: #initiates and orders all screens/classes
             id: password #unique identifier for this specific textfield
             hint_text: "Password" #hint text indicates what data the user should input into this text field
             pos_hint: {"center_x": 0.5, "center_y": 0.37} #position of text field relative to screen
-            password: True #inputted text is replaced by a bullet point icon to conceal the password as it is sensitive information
-            icon_right: "eye-off"
+            password: True #inputted text is replaced by bullet points to conceal the password as it is sensitive information
+            icon_right: "eye-off" #by default, the inputted text is replaced by bullet points so the eye icon status default to 'eye-off'
+
         MDLabel:
             id: password_error_blank #unique identifier for this specific label
             text: "Password is required" #notifies user that input is required if they have not inputted any data

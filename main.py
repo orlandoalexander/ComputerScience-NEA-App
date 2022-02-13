@@ -189,7 +189,7 @@ class Homepage(Launch):
         mqtt.publish()
 
 
-class SignUp(Launch):  # launch first to avoid MRO issue - change order to get error log
+class SignUp(Launch):
     # 'SignUp' class allows user to create an account
 
     def createAccount(self):
@@ -492,9 +492,10 @@ class MessageResponses_add(Launch):
         self.ids.plusIcon.opacity = 1  # sets the opacity of the plus icon (to add more audio messages) to 1 after placing it/them in the correct position on the screen depending on how many audio messages the user has already added
 
     def addMessage_target(self):
-        # instantiates a target view widget which is displayed on the first use of the app to explain to the user what it means to add an audio message
-        titleSpaces = '             '
-        descriptionSpaces = '              '
+        # instantiates a target view widget which explains how to utilise audio messages
+        titleSpaces = '             ' # spaces required to align title text correctly
+        descriptionSpaces = '              ' # spaces required to align description text correctly
+        # create target view widget with required properties:
         self.targetView = MDTapTargetView(
             widget=self.ids.button_audioMessage_1,
             title_text="{}Add an audio message".format(titleSpaces),
@@ -506,22 +507,19 @@ class MessageResponses_add(Launch):
             outer_radius=370,
             title_text_size=33,
             description_text_size=27,
-            cancelable=False
-        )  # creates the target view widget with the required properties
+            cancelable=False)
 
     def openTarget(self):
         # method which controls the opening of the target view
         if self.targetView.state == "close":  # if the target view is currently closed
             self.targetView.start()  # opens the target view
             self.ids.button_continueIcon.disabled = False  # activates the continue icon button
-            animation = Animation(opacity=1,
-                                  d=0.1)  # automatic animation which gradually increases the opacity of the continue icon image from 0 to 1
+            animation = Animation(opacity=1, d=0.1)  # automatic animation which gradually increases the opacity of the continue icon image from 0 to 1
             animation.start(self.continueIcon)  # starts the animation of the continue icon image
         else:  # if the target view is currently open
             self.targetView.stop()  # close the target view
             self.ids.button_continueIcon.disabled = True  # deactivates the continue icon button
-            animation = Animation(opacity=0,
-                                  d=0.1)  # automatic animation which gradually decreases the opacity of the continue icon image from 1 to 0
+            animation = Animation(opacity=0, d=0.1)  # automatic animation which gradually decreases the opacity of the continue icon image from 1 to 0
             animation.start(self.continueIcon)  # starts the animation of the continue icon image
 
     def openMessage(self, buttonNum):
