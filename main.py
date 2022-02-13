@@ -39,44 +39,34 @@ class WindowManager(ScreenManager):
 
 
 class Launch(Screen, MDApp):
-    # 'Launch' class serves to coordinate the correct launch screen for the mobile app depending on the current status of the app
+    # Coordinate the correct launch screen for the mobile app depending on the current status of the app
 
     def __init__(self, **kw):
         super().__init__(**kw)
-        Launch.statusUpdate(self)
-        Clock.schedule_once(
-            self.finishInitialising)  # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisationas the instantiation results in 1 of 3 methods (Homepage(), signIn() or signUp()) being called, each of which requires access to Kivy ids to create the GUI
+        self.statusUpdate()
+        Clock.schedule_once(self.finishInitialising)  # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay initialisation
 
     def finishInitialising(self, dt):
-        # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
-        if self.loggedIn == True:
-            createThread_ring(self.accountID, self.filepath)
-            # connect to MQTT broker to receive messages when visitor presses doorbell as already logged in
-            self.manager.transition = NoTransition()
-            self.manager.current = "Homepage"  # if the user is already logged in, then class 'Homepage' is called to allow the user to navigate the app
-
-        elif self.initialUse == True:
-            self.manager.transition = NoTransition()
+        # applies launch processes which require access to Kivy ids
+        self.manager.transition = NoTransition() # set transition type
+        if self.initialUse == True:  # initial launch of mobile app
             self.manager.current = "SignUp"
-
-        else:
-            self.manager.transition = NoTransition()
+        elif self.loggedIn == True: # user  already logged in
+            createThread_ring(self.accountID, self.filepath) # connect to MQTT broker to receive messages when visitor presses doorbell
+            self.manager.current = "Homepage"  # if the user is already logged in, screen 'Homepage' is called to allow the user to navigate the app
+        else: # not initial launch of app, but user not logged in
             self.manager.current = "SignIn"
 
     def statusUpdate(self):
-        self.filepath = MDApp.get_running_app().user_data_dir
-        jsonFilename = join(self.filepath,
-                                 "jsonStore.json")  # if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
-        # the 'join' class is used to create a single path name to the new file "self.jsonStore.json"
-        self.jsonStore = JsonStore(jsonFilename)  # wraps the filename as a json object to store data locally on the mobile phone
-        if not self.jsonStore.exists("localData"):
-            self.jsonStore.put("localData", initialUse=True, loggedIn=False, accountID="", paired=False)
-        self.initialUse = self.jsonStore.get("localData")[
-            "initialUse"]  # variable which indicates that the app is running for the first time on the user's mobile
+        self.filepath = MDApp.get_running_app().user_data_dir # path to readable/writeable directory to store local data
+        jsonFilename = join(self.filepath,"jsonStore.json")  # if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
+        self.jsonStore = JsonStore(jsonFilename)  # wraps the json file as a json object
+        if not self.jsonStore.exists("localData"): # if the mobile app is running for the first time, the key 'localData' will not exist
+            self.jsonStore.put("localData", initialUse=True, loggedIn=False, accountID="", paired=False) # sets launch properties
+        self.initialUse = self.jsonStore.get("localData")["initialUse"]
         self.loggedIn = self.jsonStore.get("localData")["loggedIn"]
         self.paired = self.jsonStore.get("localData")["paired"]
         self.accountID = self.jsonStore.get("localData")["accountID"]
-        print('logged in:', self.loggedIn)
 
     def dismissDialog(self, instance):
         # method which is called when 'Cancel' is tapped on the dialog box
@@ -84,20 +74,18 @@ class Launch(Screen, MDApp):
 
     def openSnackbar(self):
         # method which controls the opening animation of the snackbar
-        animation = Animation(pos_hint={"center_x": 0.5, "top": self.topHeight},
-                              d=0.03)  # end properties of the snackbar animation's opening motion
+        animation = Animation(pos_hint={"center_x": 0.5, "top": self.topHeight}, d=0.03)  # end properties of the snackbar animation's opening motion
         animation.start(self.ids.snackbar)  # executes the opening animation
 
     def dismissSnackbar(self):
         # method which controls the closing animation of the snackbar
         time.sleep(self.sleepTime)  # delay before snackbar is closed
-        animation = Animation(pos_hint={"center_x": 0.5, "top": 0},
-                              d=0.03)  # end properties of the snackbar animation's closing motion
+        animation = Animation(pos_hint={"center_x": 0.5, "top": 0}, d=0.03)  # end properties of the snackbar animation's closing motion
         animation.start(self.ids.snackbar)  # executes the closing animation
 
 class Homepage(Launch):
 
-    def __init__(self, **kw):
+    def pairSelect(self, **kw):
         super().__init__(**kw)
         if self.paired == False:
             title = f"Enter the name of the SmartBell which you would like to pair with:"
@@ -107,7 +95,7 @@ class Homepage(Launch):
             self.alreadyPaired_dialog()
 
     def account(self):
-        Launch.statusUpdate(self)
+        self.statusUpdate()
         if self.loggedIn == True:
             self.signOut_dialog()
         else:
@@ -115,10 +103,14 @@ class Homepage(Launch):
 
     def signOut(self, instance):
         self.dialog.dismiss()
-        self.loggedIn = False
-        self.accountID = ''
-        self.paired = False
-        self.jsonStore.put("localData", initialUse=self.initialUse, loggedIn=self.loggedIn, accountID=self.accountID, paired=self.paired)
+        self.jsonStore.put("localData", initialUse=self.initialUse, loggedIn=False, accountID='', paired=False)
+        self.statusUpdate()
+        MDApp.get_running_app().manager.get_screen('SignUp').ids.firstName.text = ''
+        MDApp.get_running_app().manager.get_screen('SignUp').ids.surname.text = ''
+        MDApp.get_running_app().manager.get_screen('SignUp').ids.email.text = ''
+        MDApp.get_running_app().manager.get_screen('SignUp').ids.password.text = ''
+        MDApp.get_running_app().manager.get_screen('SignIn').ids.email.text = ''
+        MDApp.get_running_app().manager.get_screen('SignIn').ids.password.text = ''
         self.manager.current = "SignIn"
 
     def signOut_dialog(self):
@@ -168,8 +160,8 @@ class Homepage(Launch):
                 newID = object.text
         if newID.lower() == 'unpair':
             self.jsonStore.put("localData", initialUse=self.initialUse, loggedIn=self.loggedIn, accountID=self.accountID,
-                          paired=False)
-            Launch.statusUpdate(self)  # update launch variables
+                          paired=False) # write updated data to the json file
+            self.statusUpdate()  # update launch variables
             publishData = ""
             id = self.piID
             pairing = False
@@ -289,7 +281,7 @@ class SignUp(Launch):  # launch first to avoid MRO issue - change order to get e
             thread_dismissSnackbar.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
         else:
             response = requests.post(serverBaseURL + "/updateUsers",
-                                     self.dbData_update)  # sends post request to 'updateUsers' route on AWS server with user's inputted data to be stored in the database
+                                     dbData_update)  # sends post request to 'updateUsers' route on AWS server with user's inputted data to be stored in the database
             if response.text == "error":  # if an error occurs when adding the user's data into the 'users' table
                 self.ids.snackbar.text = "Error creating account. Please try again later"  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
                 self.ids.snackbar.font_size = 30
@@ -303,15 +295,19 @@ class SignUp(Launch):  # launch first to avoid MRO issue - change order to get e
                               loggedIn=True, accountID=self.accountID,
                               paired=self.paired)  # updates json object to reflect that user has successfully created an account
                 print(self.jsonStore.get('localData'))
-                Launch.statusUpdate(self)  # update launch variables
+                self.statusUpdate()  # update launch variables
 
                 # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in and have unique accountID
 
                 createThread_ring(self.accountID, self.filepath)
-
                 self.manager.transition = NoTransition()  # creates a cut transition type
-                self.manager.current = "Homepage"  # switches to 'Homepage' GUI
-                self.manager.current.__init__()
+
+                if self.initialUse == True:
+                    self.manager.current = "MessageResponses_add"  # switches to 'Homepage' GUI
+                    self.manager.current.__init__()
+                else:
+                    self.manager.current = "Homepage"  # switches to 'Homepage' GUI
+                    self.manager.current.__init__()
 
 
 
@@ -360,7 +356,6 @@ class SignIn(Launch):
             thread_dismissSnackbar.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
         else:
             self.accountID = response  # if the user inputs details which match an account stored in the MySQL database, their unique accountID is returned
-
             dbData_accountID = {'accountID': self.accountID}
             response = (requests.post(serverBaseURL + "/getPairing", dbData_accountID).json())[
                 'result']  # sends post request to 'verifyAccount' route on AWS server to check whether the email address inputted is already associated with an account
@@ -372,13 +367,16 @@ class SignIn(Launch):
                 doorbellID = response
                 self.jsonStore.put("localData", initialUse=self.initialUse, loggedIn=True, accountID=self.accountID,
                               paired=doorbellID)  # updates json object to reflect that user has successfully signed in
-            Launch.statusUpdate(self)  # update launch variables
+            self.statusUpdate()  # update launch variables
 
             # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in
 
             createThread_ring(self.accountID, self.filepath)
+
             self.manager.transition = NoTransition()  # creates a cut transition type
+
             self.manager.current = "Homepage"  # switches to 'Homepage' GUI
+            self.manager.current.__init__()
 
 
 class MessageResponses_add(Launch):
@@ -410,22 +408,30 @@ class MessageResponses_add(Launch):
         # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
         # as the instantiation results in 1 of 2 methods (darkenImage() or audioMessage_create()) being called, each of which requires access to Kivy ids to create the GUI
         # and this is only possible if the instantiation is delayed.
-        if self.initialUse == True and self.numMessages == 0:
-            self.ids.pulsingCircle.opacity = 1
         try:
             self.targetView.stop()  # close the target view
         except:
             pass
+        if self.initialUse == True and self.numMessages == 0:
+            self.animation = Animation(color = [1,1,1,0], duration = 0.1)
+            self.animation += Animation(color=[1, 1, 1, 0], duration= 1)
+            self.animation += Animation(color=[1, 1, 1, 1], duration=0.1)
+            self.animation += Animation(color=[1, 1, 1, 1], duration=1)
+            self.animation.repeat = True
+            self.animation.start(self.ids.plusIcon)
         self.audioMessage_create(1, 3)
 
 
     def audioMessage_create(self, currentPage, currentMessage):
         # method which displays the user's current audio messages and allows users to create new personalised audio messages which can be played through the doorbell
         if self.numMessages == 0:  # if the user has not yet recorded any audio messages
+            self.addMessage_target()  # calls the method which opens the target view widget which explains to the user what a personalised audio message is
             self.ids.plusIcon.pos_hint = {"x": 0.17, "y": 0.5}  # sets the position for the plus icon
             self.ids.button_audioMessage_1.disabled = False  # activates the button to open the target view widget
-            self.addMessage_target()  # calls the method which opens the target view widget which explains to the user what a personalised audio message is
         else:  # if the user has already added a personalised audio message
+            self.jsonStore.put("localData", initialUse=False, loggedIn=self.loggedIn, accountID=self.accountID,
+                               paired=self.paired)
+            self.statusUpdate()
             if ((self.currentPage + int(currentPage)) > 0) and (self.currentPage + int(currentPage)) <= (
             self.numPages):  # if the new page number that is being transitioned to is positive and less than or equal to the total number of pages required to display all the user's audio messages
                 self.currentPage += int(
@@ -506,8 +512,9 @@ class MessageResponses_add(Launch):
 
     def openTarget(self):
         # method which controls the opening of the target view
-        self.ids.pulsingCircle.opacity = 0
         if self.targetView.state == "close":  # if the target view is currently closed
+            if self.initialUse == True:
+                self.animation.stop(self.ids.plusIcon)
             self.targetView.start()  # opens the target view
             self.ids.button_continueIcon.disabled = False  # activates the continue icon button
             animation = Animation(opacity=1,
@@ -656,13 +663,16 @@ class MessageResponses_createAudio(Launch):
         self.ids.recordAudio.source = self.recordAudio_static  # sets the source of the image with id 'recordAudio' to the static microphone image
         self.ids.button_recordAudio.disabled = False  # activates the button to record an audio message
 
+
     def rerecordAudio(self, messageDetails):
         self.messageDetails = messageDetails
         self.initialRecording = False
 
     def startRecording(self):
         # method which begins the process of recording the user's audio message
-
+        self.jsonStore.put("localData", initialUse=False, loggedIn=self.loggedIn, accountID=self.accountID,
+                           paired=self.paired)
+        self.statusUpdate()
         self.recordAudio = RecordAudio()  # instantiates the method which is used to control the recording of the user's audio message
         recordAudio_thread = Thread(target=self.recordAudio.start, args=(),
                                          daemon=False)  # initialises the instance of thread which is used to record the user's audio input
@@ -758,16 +768,16 @@ class RecordAudio():
 class MessageResponses_view(Launch):
 
     def __init__(self, **kw):
-        Launch.statusUpdate(self)
+        self.statusUpdate()
         Screen.__init__(self, **kw) # only initialise the screen as no need to initialise Launch again as this takes user to homepage
         self.audioRename = False
 
     def messageDetails_init(self, messageDetails):
         # called when changing the content of an audio message (re-recording or re-typing)
-        messageDetails = messageDetails
-        self.messageID = messageDetails[0]
-        self.messageName = messageDetails[1]
-        self.messageText = messageDetails[2]
+        self.messageDetails = messageDetails
+        self.messageID = self.messageDetails[0]
+        self.messageName = self.messageDetails[1]
+        self.messageText = self.messageDetails[2]
         self.initialRecording = False
         self.initialTyping = False
         # if the message is a text message
@@ -895,9 +905,7 @@ class MessageResponses_viewAudio(MessageResponses_view):
             self.uploadAWS()  # calls the method to upload the audio message data to AWS S3
         except:
             pass
-        self.jsonStore.put("localData", initialUse=False, loggedIn=self.loggedIn, accountID=self.accountID,
-                      paired=self.paired)
-        Launch.statusUpdate(self)  # update launch variables
+        self.statusUpdate()  # update launch variables
         self.manager.transition = NoTransition()  # creates a cut transition type
         self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
         self.manager.current_screen.__init__()  # creates a new instance of the 'MessageResponses_add' class
@@ -967,6 +975,9 @@ class MessageResponses_createText(MessageResponses_view):
         self.messageType = "Text"
 
     def saveMessage(self):
+        self.jsonStore.put("localData", initialUse=False, loggedIn=self.loggedIn, accountID=self.accountID,
+                           paired=self.paired)
+        self.statusUpdate()
         if (len(list((self.ids.messageText.text).strip())) > 80 or len(list((self.ids.messageText.text).strip())) == 0):
             self.ids.snackbar.font_size = 30
             self.ids.snackbar.text = "Sorry, the text you have entered is invalid!\nPlease make sure your message is between\n1 and 80 characters."  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
@@ -997,7 +1008,7 @@ class MessageResponses_createText(MessageResponses_view):
                                  dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
         self.jsonStore.put("localData", initialUse=False, loggedIn=self.loggedIn, accountID=self.accountID,
                       paired=self.paired)
-        Launch.statusUpdate(self)  # update launch variables
+        self.statusUpdate()  # update launch variables
         self.manager.transition = NoTransition()  # creates a cut transition type
         self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
         self.manager.current_screen.__init__()  # creates a new instance of the 'MessageResponses_add' class
@@ -1021,6 +1032,8 @@ class VisitorImage(Launch):
             self.manager.get_screen(
                 'Homepage').ids.snackbar.text = 'No images captured by SmartBell on your account\n'
             self.manager.current = 'Homepage'
+            MDApp.get_running_app().manager.get_screen('Homepage').topHeight = 0.095
+            MDApp.get_running_app().manager.get_screen('Homepage').sleepTime = 3
             self.manager.get_screen('Homepage').openSnackbar()  # calls the method which creates the snackbar animation
             thread_dismissSnackbar = Thread(target=self.manager.get_screen('Homepage').dismissSnackbar, args=(),
                                             daemon=False)  # initialises an instance of the 'threading.Thread()' method
@@ -1035,8 +1048,7 @@ class VisitorImage(Launch):
             data_visitID = {"visitID": visitID}
             response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
             faceID = response[1]
-            confidence = response[2]
-            if confidence != "NO_FACE":  # confidence is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
+            if faceID != "NO_FACE":  # faceID is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
                 data_faceID = {"faceID": str(faceID)}
                 faceName = None
                 while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
@@ -1123,9 +1135,11 @@ def visitorImage_thread(visitID, visitorImage_path):
              'wb')  # opens file to store image bytes (opens in 'wb' format to enable bytes to be written to this file)
     f.write(visitorImage_data)  # writes visitor image bytes data to the file
     f.close()
+    time.sleep(0.5)
     visitorImage = AsyncImage(source=visitorImage_path,
                               pos_hint={"center_x": 0.5,
                                         "center_y": 0.53})  # AsyncImage loads image as background thread, so doesn't hold up running of program if there is a delay in loading the image
+    visitorImage.reload()
     MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
         visitorImage)  # accesses screen ids of 'VisitorImage' screen and adds the visitor image as a widget to a nested Kivy float layout MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
     MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
@@ -1139,6 +1153,7 @@ def createThread_ring(accountID, filepath):
     visitorImage_path = join(filepath, 'visitorImage.png') # path to store visitor image on mobile app
     thread_ring = Thread(target=ringThread,args=(mqtt, visitorImage_path)) # create thread which checks status of Objective-C property 'messageReceived_ring'
     thread_ring.start() # start the thread
+    return
 
 
 
@@ -1181,11 +1196,12 @@ def ringThread(mqtt, visitorImage_path):
                      'wb')  # opens file to store image bytes (opens in 'wb' format to enable bytes to be written to this file)
             f.write(visitorImage_data)  # writes visitor image bytes data to the file
             f.close()
+            time.sleep(0.5)
             MDApp.get_running_app().manager.current = "VisitorImage"
             visitorImage = AsyncImage(source=visitorImage_path,
                                       pos_hint={"center_x": 0.5,
                                                 "center_y": 0.53}) # AsyncImage loads image as background thread, so doesn't hold up running of program if there is a delay in loading the image
-
+            visitorImage.reload()
             mqtt.notifyPhone()  # calls Objective-C method to play notification sound through mobile phone
             MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.add_widget(
                 visitorImage)  # accesses screen ids of 'VisitorImage' screen and adds the visitor image as a widget to a nested Kivy float layout MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
@@ -1204,8 +1220,7 @@ def visitThread(visitID):
             response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
             time.sleep(1)
         faceID = response[1]
-        confidence = response[2]
-        if confidence != "NO_FACE":  # confidence is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
+        if faceID != "NO_FACE":  # faceID is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
             data_faceID = {"faceID": str(faceID)}
             faceName = None
             while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)

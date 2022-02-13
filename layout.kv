@@ -294,7 +294,7 @@ WindowManager: #initiates and orders all screens/classes
             size_hint: 0.23,0.12
             pos_hint: {"x": 0.62, "y": 0.25}
             on_press:
-                root.manager.current_screen.__init__()
+                root.manager.current_screen.pairSelect()
 
         Button:
             id: button_account #unique identifier for this specific button
@@ -341,14 +341,6 @@ WindowManager: #initiates and orders all screens/classes
             keep_ratio: False #allows image proportions to be altered so that it fills the screen
             opacity: 0
 
-        Image:
-            id: pulsingCircle #unique identifier for this specific image
-            source: "SmartBell_pulsingCircle.zip"
-            anim_delay: 0.075
-            anim_loop: 0
-            size_hint: 2, 2
-            pos_hint: {"x":-0.25,"y": 0.085} #position of image relative to parent screen
-            opacity: 0
 
         Button:
             id: button_continueIcon #unique identifier for this specific button
