@@ -193,7 +193,7 @@ class SignUp(Launch):
     # 'SignUp' class allows user to create an account
 
     def createAccount(self):
-        # method called when user taps the Sign Up button - checks validity of details entered by user
+        # method called when user taps the Sign Up button to check validity of details entered by user
         self.firstName_valid = False  # variable which indicates that a valid value for 'firstName' has been inputted by the user
         self.surnameValid = False  # variable which indicates that a valid value for 'surname' has been inputted by the user
         self.emailValid = False  # variable which indicates that a valid value for 'email' has been inputted by the user
@@ -228,7 +228,7 @@ class SignUp(Launch):
             self.ids.password_error_invalid.opacity = 0  # invalid password error message is removed
         else:
             password = self.ids.password.text
-            if (len(password) >= 8) and re.search("^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$", password) != None:
+            if re.search("^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$", password) != None:
                 # Checks that inputted password is at least 8 characters
                 # Regular expression used to check that password contains at least 1 lowercase character,
                 # 1 uppercase character, 1 digit and 1 special character
