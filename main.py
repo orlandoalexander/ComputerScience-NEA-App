@@ -406,7 +406,7 @@ class MessageResponses_add(Launch):
             animation += Animation(color=[1, 1, 1, 1], duration=0.1)  # become visible
             animation += Animation(color=[1, 1, 1, 1], duration=1)  # visible
             animation.repeat = True  # animation loops forever
-        animation.start(self.ids.plusIcon) # apply animation to image with id 'plusIcon'
+            animation.start(self.ids.plusIcon) # apply animation to image with id 'plusIcon'
         self.audioMessage_create(1, 3) # calls method to display user's current audio messages
 
 
