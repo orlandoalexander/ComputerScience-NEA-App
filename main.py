@@ -286,7 +286,6 @@ class SignUp(Launch):
                 self.jsonStore.put("localData", initialUse=self.initialUse,
                               loggedIn=True, accountID=self.accountID,
                               paired=self.paired)  # updates json object to reflect that user has successfully created an account
-                print(self.jsonStore.get('localData'))
                 self.statusUpdate()  # update launch variables
 
                 # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in and have unique accountID
@@ -891,7 +890,6 @@ class MessageResponses_viewAudio(MessageResponses_view):
             self.uploadAWS()  # calls the method to upload the audio message data to AWS S3
         except:
             pass
-        self.statusUpdate()  # update launch variables
         self.manager.transition = NoTransition()  # creates a cut transition type
         self.manager.current = "MessageResponses_add"  # switches to 'MessageResponses_add' GUI
         self.manager.current_screen.__init__()  # creates a new instance of the 'MessageResponses_add' class
@@ -961,9 +959,6 @@ class MessageResponses_createText(MessageResponses_view):
         self.messageType = "Text"
 
     def saveMessage(self):
-        self.jsonStore.put("localData", initialUse=False, loggedIn=self.loggedIn, accountID=self.accountID,
-                           paired=self.paired)
-        self.statusUpdate()
         if (len(list((self.ids.messageText.text).strip())) > 80 or len(list((self.ids.messageText.text).strip())) == 0):
             self.ids.snackbar.font_size = 30
             self.ids.snackbar.text = "Sorry, the text you have entered is invalid!\nPlease make sure your message is between\n1 and 80 characters."  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
@@ -979,6 +974,7 @@ class MessageResponses_createText(MessageResponses_view):
     def audioMessages_update(self):
         # method which updates the MySQL table to store the data about the audio message created by the user
         messageText = self.ids.messageText.text
+        #self.statusUpdate() # get latest value for accountID
         dbData_update = {}  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         dbData_update[
             "messageID"] = self.messageID  # adds the variable 'messageID' to the dictionary 'dbData_update'
