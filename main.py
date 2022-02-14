@@ -228,16 +228,14 @@ class SignUp(Launch):
             self.ids.password_error_invalid.opacity = 0  # invalid password error message is removed
         else:
             password = self.ids.password.text
-            if re.search("(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}", password) != None:
+            if re.search("(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[a-zA-Z\d@$!%*?&]{8,}", password) != None:
                 # Checks that inputted password is at least 8 characters
                 # Regular expression used to check that password contains at least 1 lowercase character,
                 # 1 uppercase character, 1 digit and 1 special character
                 self.password = self.ids.password.text  # inputted password assigned to a variable
                 self.hashedPassword = (hashlib.new("sha3_256", self.password.encode())).hexdigest()
-                # Creates a hash of the user's password so that it is encrypted when it is stored on the database, as it is sensitive data
-                # The hashing algorithm SHA3-256 is used by the 'hashlib' module to encrypt the UTF-8 encoded version
-                # of the password - the method 'encode()' UTF-8 encodes the plaintext password and the method 'hexdigest()'
-                # returns the hex value of the hashed password that has been created
+                # Creates a hash of the user's password so that it is stored secureley on the database, as it is sensitive data
+
                 self.ids.password_error_blank.opacity = 0  # error message removed
                 self.ids.password_error_invalid.opacity = 0  # invalid password error message is removed
                 self.passwordValid = True  # variable which indicates that a valid value has been inputted by the user
@@ -324,11 +322,8 @@ class SignIn(Launch):
             self.ids.password_error_invalid.opacity = 0  # invalid password error message is removed
         else:
             self.password = self.ids.password.text  # inputted password assigned to a variable
-            self.hashedPassword = (hashlib.new("sha3_256",
-                                               self.password.encode())).hexdigest()  # creates a hash of the user's password so that it can be compared to the hashed version stored on the database
-            # the hashing algorithm SHA3-256 is used by the 'hashlib' module to encrypt the UTF-8 encoded version of
-            # the password (the method 'encode()' UTF-8 encodes the plaintext password) the method 'hexdigest()'
-            # returns the hex value of the hashed password that has been created
+            self.hashedPassword = (hashlib.new("sha3_256",self.password.encode())).hexdigest()
+            # Creates a hash of the user's password so that it can be compared to the hashed version stored on the database
             self.ids.password_error_invalid.opacity = 0  # error message removed
             self.passwordValid = True  # variable which indicates that a valid value has been inputted by the user
             if self.emailValid and self.passwordValid:  # checks if all the data values have been inputted and are valid
