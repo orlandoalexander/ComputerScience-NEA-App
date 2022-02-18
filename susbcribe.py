@@ -9,5 +9,5 @@ def on_message(i,h, msg):
 
 client.subscribe("testing")
 client.message_callback_add("testing", on_message)
-
 client.loop_forever()
+
