@@ -1,7 +1,6 @@
 import os
 os.environ[
     'KIVY_AUDIO'] = 'avplayer'  # control the kivy environment to ensure audio input can be accepted following audio output
-
 from kivymd.app import MDApp
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
@@ -67,7 +66,7 @@ class Launch(Screen, MDApp):
         self.loggedIn = self.jsonStore.get("localData")["loggedIn"]
         self.paired = self.jsonStore.get("localData")["paired"]
         self.accountID = self.jsonStore.get("localData")["accountID"]
-        print('logged in', self.loggedIn)
+        print(self.jsonStore.get('localData'))
 
     def dismissDialog(self, instance):
         # method which is called when 'Cancel' is tapped on the dialog box
@@ -88,6 +87,7 @@ class Homepage(Launch):
 
     def pairSelect(self, **kw):
         super().__init__(**kw)
+        self.statusUpdate()
         if self.paired == False:
             title = f"Enter the name of the SmartBell which you would like to pair with:"
             self.pairDialog(title)
@@ -102,6 +102,7 @@ class Homepage(Launch):
     def signOut(self, instance):
         self.dialog.dismiss()
         self.jsonStore.put("localData", initialUse=self.initialUse, loggedIn=False, accountID='', paired=False)
+        print(self.jsonStore.get("localData"))
         self.statusUpdate()
         MDApp.get_running_app().manager.get_screen('SignUp').ids.firstName.text = ''
         MDApp.get_running_app().manager.get_screen('SignUp').ids.surname.text = ''
@@ -171,8 +172,8 @@ class Homepage(Launch):
             dbData_id = {'id': self.piID}
             response = (requests.post(serverBaseURL + "/checkPairing", dbData_id)).text
             if response == 'notExists':
-                self.ids.snackbar.text = f"No SmartBell with the name '{self.piID}' exists!\n"
-                self.topHeight = 0.095
+                self.ids.snackbar.text = f"No SmartBell with the name '{self.piID}' exists!"
+                self.topHeight = 0.13
                 self.sleepTime = 5
                 self.openSnackbar() # calls the method which creates the snackbar animation
                 thread_dismissSnackbar = Thread(target=self.dismissSnackbar, args=(),
@@ -262,7 +263,7 @@ class SignUp(Launch):
             "password"] = self.hashedPassword  # adds the variable 'hashPassword' to the dictionary 'dbData'
         response = requests.post(serverBaseURL + "/verifyAccount",
                                  dbData_update)  # sends post request to 'verifyAccount' route on AWS server to check whether the email address inputted is already associated with an account
-        self.topHeight = 0.095 # snackbar properties
+        self.topHeight = 0.13 # snackbar properties
         self.sleepTime = 5
         if response.text == "exists":  # if the inputted email address is already associated with an account
             self.ids.snackbar.text = "Account with this email address already exists. Login instead"  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
@@ -282,7 +283,7 @@ class SignUp(Launch):
                                                      daemon=False)  # initialises an instance of the 'threading.Thread()' method
                 thread_dismissSnackbar.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
             else:
-
+                self.statusUpdate() # get latest value of 'paired'
                 self.jsonStore.put("localData", initialUse=self.initialUse,
                               loggedIn=True, accountID=self.accountID,
                               paired=self.paired)  # updates json object to reflect that user has successfully created an account
@@ -1007,13 +1008,15 @@ class VisitorImage(Launch):
 
     def viewImage(self):
         global faceID
+        self.statusUpdate()
         dbData_accountID = {"accountID": self.accountID}
+        print(self.jsonStore.get('localData'))
         response = requests.post(serverBaseURL + "/latest_visitorLog", dbData_accountID).json()['result']
         if response == 'none':
             self.manager.get_screen(
-                'Homepage').ids.snackbar.text = 'No images captured by SmartBell on your account\n'
+                'Homepage').ids.snackbar.text = 'No images captured by SmartBell on your account'
             self.manager.current = 'Homepage'
-            MDApp.get_running_app().manager.get_screen('Homepage').topHeight = 0.095
+            MDApp.get_running_app().manager.get_screen('Homepage').topHeight = 0.13
             MDApp.get_running_app().manager.get_screen('Homepage').sleepTime = 3
             self.manager.get_screen('Homepage').openSnackbar()  # calls the method which creates the snackbar animation
             thread_dismissSnackbar = Thread(target=self.manager.get_screen('Homepage').dismissSnackbar, args=(),
@@ -1216,14 +1219,14 @@ def visitThread(visitID):
 def pairThread(accountID, id, pairing, jsonStore):
     start_time = time.time()
     dbData_id = {'id': id}
-    MDApp.get_running_app().manager.get_screen('Homepage').topHeight = 0.095
+    MDApp.get_running_app().manager.get_screen('Homepage').topHeight = 0.13
     MDApp.get_running_app().manager.get_screen('Homepage').sleepTime = 5
     while True:
         response = (requests.post(serverBaseURL + "/verifyPairing", dbData_id).json())[
             'result']  # sends post request to 'verifyAccount' route on AWS server to check whether the email address inputted is already associated with an account
         if response == accountID and pairing == True:
             MDApp.get_running_app().manager.get_screen(
-                'Homepage').ids.snackbar.text = f"Successfully paired with SmartBell '{id}'!\n"
+                'Homepage').ids.snackbar.text = f"Successfully paired with SmartBell '{id}'!"
             MDApp.get_running_app().manager.get_screen('Homepage').openSnackbar()
             loggedIn = jsonStore.get("localData")["loggedIn"]
             accountID = jsonStore.get("localData")["accountID"]
@@ -1231,17 +1234,17 @@ def pairThread(accountID, id, pairing, jsonStore):
             break
         elif response == '' and pairing == False:
             MDApp.get_running_app().manager.get_screen(
-                'Homepage').ids.snackbar.text = f"Successfully unpaired from SmartBell '{id}'\n"
+                'Homepage').ids.snackbar.text = f"Successfully unpaired from SmartBell '{id}'"
             MDApp.get_running_app().manager.get_screen('Homepage').openSnackbar()
             break
         elif response != accountID and response != None and response != '' and pairing == True:
             MDApp.get_running_app().manager.get_screen(
-                'Homepage').ids.snackbar.text = 'Error pairing SmartBell. Please ensure you\ninput the correct name for your SmartBell\n'
+                'Homepage').ids.snackbar.text = 'Error pairing SmartBell. Please ensure you\ninput the correct name for your SmartBell'
             MDApp.get_running_app().manager.get_screen('Homepage').openSnackbar()
             break
         elif time.time() - start_time > 60:
             MDApp.get_running_app().manager.get_screen(
-                'Homepage').ids.snackbar.text = 'Error pairing SmartBell. Please ensure you\ninput the correct name for your SmartBell\n'
+                'Homepage').ids.snackbar.text = 'Error pairing SmartBell. Please ensure you\ninput the correct name for your SmartBell'
             MDApp.get_running_app().manager.get_screen('Homepage').openSnackbar()
             break
         time.sleep(1)
