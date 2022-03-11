@@ -1001,10 +1001,8 @@ class MessageResponses_createText(MessageResponses_view):
 class VisitorLog(Launch):
     def __init__(self, **kw):
         super().__init__(**kw)
-        self.averageRate = 'Test'
         thread = Thread(target=self.schedule)
         thread.start()
-        self.get_averageRate()
 
 
     def schedule(self):
@@ -1012,12 +1010,14 @@ class VisitorLog(Launch):
 
     def visitorLog(self, dt):
         self.statusUpdate()
+        self.get_averageRate()
+        self.get_averageTime()
         dbData_accountID = {"accountID": self.accountID}
         self.visitors = requests.post(serverBaseURL + "/get_visitorLog", dbData_accountID).json()
         for index, visitDetails in enumerate(self.visitors):
             self.faceID = visitDetails[1]
             self.visitID = visitDetails[2]
-            self.date = time.strftime('%d-%m-%Y', time.gmtime(float(visitDetails[0][6:])))
+            self.date = time.strftime('%d-%m-%Y, %H:%M:%S', time.gmtime(float(visitDetails[0][6:])))
             self.visitorImage_path = join(self.filepath, self.visitID + '.png')
             self.get_visitorImage()
             if self.faceID != 'NO_FACE':
@@ -1101,17 +1101,23 @@ class VisitorLog(Launch):
                 k += 1
         return array
 
+
     def get_averageRate(self):
         dbData_accountID = {"accountID": self.accountID}
         response = requests.post(serverBaseURL + "/get_averageRate", dbData_accountID)
-        self.averageRate = response.json()['result']
-        print(self.averageRate)
+        self.averageRate = str(round(response.json()['result'],1))
+        text = f"Average number of visits per day: {str(self.averageRate)} visits"
+        self.ids.averageRate.text = text
 
     def get_averageTime(self):
         dbData_accountID = {"accountID": self.accountID}
         response = requests.post(serverBaseURL + "/get_averageTime", dbData_accountID)
-        self.averageTime = response.json()['result']
-        print(self.averageTime)
+        self.averageTime = round(response.json()['result'],2)
+        hours = int(self.averageTime) # total number of complete hours
+        minutes = (self.averageTime * 60) % 60 # total number of minutes remaining from complete hours
+        self.averageTime = str("%02d:%02d" % (hours, minutes)) # zero padding and two decimal places for each number
+        text = f"Average time of visit (24hr): {self.averageTime}"
+        self.ids.averageTime.text = text
 
 
 

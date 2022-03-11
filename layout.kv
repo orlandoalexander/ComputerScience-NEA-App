@@ -289,7 +289,7 @@ WindowManager: #initiates and orders all screens/classes
             pos_hint: {"x": 0.15, "y": 0.25}
             on_press:
                 root.manager.current = "VisitorLog"
-                root.manager.current_screen.__init__()
+                root.manager.current_screen.visitorLog('')
 
         Button:
             id: button_pair
@@ -860,11 +860,17 @@ WindowManager: #initiates and orders all screens/classes
 
         MDLabel:
             id: averageRate #unique identifier for this specific label
-            text: root.averageRate
             theme_text_color: "Custom"
             text_color: 1,1,1,1 #white
             halign: "center"
-            pos_hint: {"center_x": 0.2, "center_y": 0.1} #position of label relative to screen
+            pos_hint: {"center_x": 0.5, "center_y": 0.22} #position of label relative to screen
+
+        MDLabel:
+            id: averageTime #unique identifier for this specific label
+            theme_text_color: "Custom"
+            text_color: 1,1,1,1 #white
+            halign: "center"
+            pos_hint: {"center_x": 0.5, "center_y": 0.17} #position of label relative to screen
 
 
     ScrollView:
