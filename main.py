@@ -6,6 +6,8 @@ from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.taptargetview import MDTapTargetView
 from kivymd.uix.button import MDFlatButton, MDRaisedButton
+from kivymd.uix.list import TwoLineAvatarListItem
+from kivymd.uix.list import ImageLeftWidget
 from kivy.uix.image import AsyncImage
 from kivy.uix.boxlayout import BoxLayout
 from kivy.core.audio import SoundLoader
@@ -997,7 +999,121 @@ class MessageResponses_createText(MessageResponses_view):
 
 
 class VisitorLog(Launch):
-    pass
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.averageRate = 'Test'
+        thread = Thread(target=self.schedule)
+        thread.start()
+        self.get_averageRate()
+
+
+    def schedule(self):
+        Clock.schedule_once(self.visitorLog)
+
+    def visitorLog(self, dt):
+        self.statusUpdate()
+        dbData_accountID = {"accountID": self.accountID}
+        self.visitors = requests.post(serverBaseURL + "/get_visitorLog", dbData_accountID).json()
+        for index, visitDetails in enumerate(self.visitors):
+            self.faceID = visitDetails[1]
+            self.visitID = visitDetails[2]
+            self.date = time.strftime('%d-%m-%Y', time.gmtime(float(visitDetails[0][6:])))
+            self.visitorImage_path = join(self.filepath, self.visitID + '.png')
+            self.get_visitorImage()
+            if self.faceID != 'NO_FACE':
+                dbData_faceID = {"faceID": self.faceID}
+                result = requests.post(serverBaseURL + "/get_faceName", dbData_faceID).json()
+                faceName = result[0]
+                self.visitors[index][1] = faceName # replace face ID with face name
+            else: # if no face identified
+                self.visitors[index][1] = 'No face identified'
+            self.visitors[index][2] = self.visitorImage_path
+            self.visitors[index] += (self.date,) # append to tuple
+        self.visitors = list(map(lambda a:(a[0][6:], a[1], a[2], a[3]), self.visitors)) # create tuples sorted by time
+        self.displayLog('date')
+
+    def displayLog(self, dateORname):
+        self.visitorsSorted = self.mergeSort(self.visitors, dateORname)
+        self.ids.container.clear_widgets()
+        for i in range(len(self.visitorsSorted)):
+            newWidget = TwoLineAvatarListItem(text=f"Name: {self.visitorsSorted[i][1]}", secondary_text = f"Date: {self.visitorsSorted[i][3]}")
+            newWidget.add_widget(ImageLeftWidget(source= self.visitorsSorted[i][2]))
+            self.ids.container.add_widget(newWidget)
+
+    def get_visitorImage(self):
+        downloadData = {"bucketName": "nea-visitor-log",
+                        "s3File": self.visitID}  # creates the dictionary which stores the metadata required to download the png file of the visitor image from AWS S3 (via the server REST API)
+        response = requests.post(serverBaseURL + "/downloadS3",
+                                 downloadData)  # request sent to custom REST API, which uses 'boto3' module to attempt to download the visitor image with name 'visitID' from AWS S3
+        responseMessage = response.content  # bytes content of message returned by REST API
+        time.sleep(0.5)  # time delay to reduce number of requests to AWS API, reducing running costs
+        visitorImage_data = responseMessage  # stores visitor image bytes data
+        f = open(self.visitorImage_path,'wb')  # opens file to store image bytes (opens in 'wb' format to enable bytes to be written to this file)
+        f.write(visitorImage_data)  # writes visitor image bytes data to the file
+        f.close()
+        time.sleep(0.5)
+
+
+    def mergeSort(self, array, dateORname):
+        if dateORname == 'date':
+            index = 1
+            self.date = True
+        else:
+            index = 0
+            self.date = False
+        if len(array) > 1:
+
+            # Finding the mid of the array
+            mid = len(array) // 2
+
+            # Dividing the array elements
+            left = array[:mid]
+
+            # into 2 halves
+            right = array[mid:]
+
+            # Sorting the first half
+            self.mergeSort(left, dateORname)
+
+            # Sorting the second half
+            self.mergeSort(right, dateORname)
+
+            i = j = k = 0
+
+            while i < len(left) and j < len(right):
+                if left[i][index] < right[j][index]: # sort by first item in tuple
+                    array[k] = left[i]
+                    i += 1
+                else:
+                    array[k] = right[j]
+                    j += 1
+                k += 1
+
+            # Checking if any element was left
+            while i < len(left):
+                array[k] = left[i]
+                i += 1
+                k += 1
+
+            while j < len(right):
+                array[k] = right[j]
+                j += 1
+                k += 1
+        return array
+
+    def get_averageRate(self):
+        dbData_accountID = {"accountID": self.accountID}
+        response = requests.post(serverBaseURL + "/get_averageRate", dbData_accountID)
+        self.averageRate = response.json()['result']
+        print(self.averageRate)
+
+    def get_averageTime(self):
+        dbData_accountID = {"accountID": self.accountID}
+        response = requests.post(serverBaseURL + "/get_averageTime", dbData_accountID)
+        self.averageTime = response.json()['result']
+        print(self.averageTime)
+
+
 
 
 class RingAlert(Launch):

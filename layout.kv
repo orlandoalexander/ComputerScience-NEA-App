@@ -289,6 +289,7 @@ WindowManager: #initiates and orders all screens/classes
             pos_hint: {"x": 0.15, "y": 0.25}
             on_press:
                 root.manager.current = "VisitorLog"
+                root.manager.current_screen.__init__()
 
         Button:
             id: button_pair
@@ -830,12 +831,47 @@ WindowManager: #initiates and orders all screens/classes
         allow_stretch: True #allows image to be stretched so that it fills the screen
         keep_ratio: False #allows image proportions to be altered so that it fills the screen
 
+
     Button:
         id: button_homepage #unique identifier for this specific button
         pos_hint: {"center_x": 0.52, "center_y": 0.07}
         size_hint: 0.2,0.1
         on_press:
             root.manager.current = "Homepage"
+
+
+    FloatLayout:
+
+        MDSwitch:
+            pos_hint: {'center_x': .5, 'center_y': .3}
+            width: dp(64)
+            selected_color: 37/255, 41/255, 88/255, 1
+            on_active:
+                if root.date == True: root.displayLog('name')
+                else: root.displayLog('date')
+
+        MDLabel:
+            id: dateORname #unique identifier for this specific label
+            text: "     Date                        Name" #notifies user that input is required if they have not inputted any data
+            theme_text_color: "Custom"
+            text_color: 1,1,1,1 #white
+            halign: "center"
+            pos_hint: {"center_x": 0.5, "center_y": 0.3} #position of label relative to screen
+
+        MDLabel:
+            id: averageRate #unique identifier for this specific label
+            text: root.averageRate
+            theme_text_color: "Custom"
+            text_color: 1,1,1,1 #white
+            halign: "center"
+            pos_hint: {"center_x": 0.2, "center_y": 0.1} #position of label relative to screen
+
+
+    ScrollView:
+        size_hint: 0.8,0.45
+        pos_hint: {"center_x": 0.5, "top": 0.8}
+        MDList:
+            id: container
 
 
 
