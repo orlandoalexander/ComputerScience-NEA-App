@@ -1,6 +1,6 @@
 import os
 os.environ[
-    'KIVY_AUDIO'] = 'avplayer'  # control the kivy environment to ensure audio input can be accepted following audio output
+    'KIVY_AUDIO'] = 'avplayer' # control the kivy environment to ensure audio input can be accepted following audio output
 from kivymd.app import MDApp
 from kivymd.uix.textfield import MDTextField
 from kivymd.uix.dialog import MDDialog
@@ -40,7 +40,7 @@ class WindowManager(ScreenManager):
 
 
 class Launch(Screen, MDApp):
-    # Coordinate the correct launch screen for the mobile app depending on the current status of the app
+    # coordinate the correct launch screen for the mobile app depending on the current status of the app
 
     def __init__(self, **kw):
         super().__init__(**kw)
@@ -50,15 +50,16 @@ class Launch(Screen, MDApp):
     def finishInitialising(self, dt):
         # applies launch processes which require access to Kivy ids
         self.manager.transition = NoTransition() # set transition type
-        if self.initialUse == True:  # initial launch of mobile app
+        if self.initialUse == True: # initial launch of mobile app
             self.manager.current = "SignUp"
-        elif self.loggedIn == True: # user  already logged in
+        elif self.loggedIn == True: # user already logged in
             createThread_ring(self.accountID, self.filepath) # connect to MQTT broker to receive messages when visitor presses doorbell
             self.manager.current = "Homepage"  # if the user is already logged in, screen 'Homepage' is called to allow the user to navigate the app
-        else: # not initial launch of app, but user not logged in
+        else: # not initial launch of app and user not logged in
             self.manager.current = "SignIn"
 
     def statusUpdate(self):
+        # update the attributes assigned to the locally cached data about the user details and the app status
         self.filepath = MDApp.get_running_app().user_data_dir # path to readable/writeable directory to store local data
         jsonFilename = join(self.filepath,"jsonStore.json")  # if file name already exists, it is assigned to 'self.filename'. If filename doesn't already exist, file is created locally on the mobile phone
         self.jsonStore = JsonStore(jsonFilename)  # wraps the json file as a json object
@@ -68,40 +69,44 @@ class Launch(Screen, MDApp):
         self.loggedIn = self.jsonStore.get("localData")["loggedIn"]
         self.paired = self.jsonStore.get("localData")["paired"]
         self.accountID = self.jsonStore.get("localData")["accountID"]
-        print(self.jsonStore.get('localData'))
 
     def dismissDialog(self, instance):
-        # method which is called when 'Cancel' is tapped on the dialog box
+        # called when 'Cancel' is tapped on the dialog box
         self.dialog.dismiss()  # closes the dialog box
 
     def openSnackbar(self):
-        # method which controls the opening animation of the snackbar
+        # controls the opening animation of the snackbar
         animation = Animation(pos_hint={"center_x": 0.5, "top": self.topHeight}, d=0.03)  # end properties of the snackbar animation's opening motion
         animation.start(self.ids.snackbar)  # executes the opening animation
 
     def dismissSnackbar(self):
-        # method which controls the closing animation of the snackbar
+        # controls the closing animation of the snackbar
         time.sleep(self.sleepTime)  # delay before snackbar is closed
         animation = Animation(pos_hint={"center_x": 0.5, "top": 0}, d=0.03)  # end properties of the snackbar animation's closing motion
         animation.start(self.ids.snackbar)  # executes the closing animation
 
+
 class Homepage(Launch):
+    # home screen allows user to navigate to each screen in mobile app
 
     def pairSelect(self, **kw):
+        # called when user selects 'Pair' button on home screen
         super().__init__(**kw)
         self.statusUpdate()
-        if self.paired == False:
+        if self.paired == False: # user account not paired with doorbell
             title = f"Enter the name of the SmartBell which you would like to pair with:"
-            self.pairDialog(title)
+            self.pairDialog(title) # open dialog to allow user to pair with doorbell
         else:
-            self.piID= self.paired
+            self.piID=self.paired
             self.alreadyPaired_dialog()
 
     def account(self):
+        # called when user taps 'Account' icon on home screen
         self.statusUpdate()
         self.signOut_dialog() # open dialog which gives user the option to sign out of their account
 
     def signOut(self, instance):
+        # signs user out of their account
         self.dialog.dismiss()
         self.jsonStore.put("localData", initialUse=self.initialUse, loggedIn=False, accountID='', paired=False)
         print(self.jsonStore.get("localData"))
@@ -115,6 +120,7 @@ class Homepage(Launch):
         self.manager.current = "SignIn"
 
     def signOut_dialog(self):
+        # creates dialog box to ask user to confirm whether they would like to sign out of their account
         self.dialog = MDDialog(
             title='Sign out?',
             text = 'If you sign out, you will be unpaired from any existing connection with a SmartBell.',
@@ -127,6 +133,7 @@ class Homepage(Launch):
         self.dialog.open()  # opens the dialog box
 
     def pairDialog(self, title):
+        # creates dialog to enable user to enter ID of SmartBell to pair with
         self.dialog = MDDialog(
             title=title,
             auto_dismiss=False,
@@ -139,6 +146,7 @@ class Homepage(Launch):
         self.dialog.open()  # opens the dialog box
 
     def alreadyPaired_dialog(self):
+        # creates dialog asking user to confirm whether they would like to alter their current SmartBell pairing
         self.dialog = MDDialog(
             title=f"You are currently paired with SmartBell '{self.piID}'.\nDo you want to unpair / pair with a new SmartBell?",
             auto_dismiss=False,
@@ -150,11 +158,13 @@ class Homepage(Launch):
         self.dialog.open()  # opens the dialog box
 
     def dismissDialog_alreadyPaired(self, instance):
+        # creates dialog to enable to unpair from current SmartBell or pair with new SmartBell
         self.dialog.dismiss()  # closes the dialog box
         title = f"Enter the name of the SmartBell which you would like to pair with. Alternatively, enter 'unpair' to unpair from SmartBell '{self.piID}':"
         self.pairDialog(title)
 
     def pair(self, instance):
+        # executes SmartBell pairing process
         self.dialog.dismiss()
         for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the audio message they recorded/typed
             if isinstance(object, MDTextField):  # if the object is an MDTextField
@@ -173,7 +183,7 @@ class Homepage(Launch):
             publishData = str(self.accountID)
             dbData_id = {'id': self.piID}
             response = (requests.post(serverBaseURL + "/checkPairing", dbData_id)).text
-            if response == 'notExists':
+            if response == 'notExists': # if SmartBell with ID entered by user doesn't exist
                 self.ids.snackbar.text = f"No SmartBell with the name '{self.piID}' exists!"
                 self.topHeight = 0.13
                 self.sleepTime = 5
@@ -185,18 +195,18 @@ class Homepage(Launch):
                 pairing = True
                 pair_thread = Thread(target=pairThread, args=(self.accountID, self.piID, pairing, self.jsonStore))
                 pair_thread.start()
-        MQTTPython = autoclass('MQTT')
+        MQTTPython = autoclass('MQTT') # interface between Python code and objective C class 'MQTT'
         mqtt = MQTTPython.alloc().init()
         mqtt.publishData = publishData
         mqtt.publishTopic = f"id/{self.piID}"
-        mqtt.publish()
+        mqtt.publish() # publish message to MQTT topic 'id/piID' via objective C class 'MQTT'
 
 
 class SignUp(Launch):
     # 'SignUp' class allows user to create an account
 
     def createAccount(self):
-        # method called when user taps the Sign Up button to check validity of details entered by user
+        # called when user taps the Sign Up button to check validity of details entered by user
         self.firstName_valid = False  # variable which indicates that a valid value for 'firstName' has been inputted by the user
         self.surnameValid = False  # variable which indicates that a valid value for 'surname' has been inputted by the user
         self.emailValid = False  # variable which indicates that a valid value for 'email' has been inputted by the user
@@ -291,9 +301,9 @@ class SignUp(Launch):
                               paired=self.paired)  # updates json object to reflect that user has successfully created an account
                 self.statusUpdate()  # update launch variables
 
-                # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in and have unique accountID
 
-                createThread_ring(self.accountID, self.filepath)
+                createThread_ring(self.accountID, self.filepath) # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in and have unique accountID
+
                 self.manager.transition = NoTransition()  # creates a cut transition type
 
                 if self.initialUse == True:
@@ -309,7 +319,7 @@ class SignIn(Launch):
     # 'SignIn' class allows users to log into their account
 
     def signIn(self):
-        # method called when user taps the Sign In button
+        # called when user taps the Sign In button
         self.emailValid = False  # variable which indicates that a valid value has been inputted by the user
         self.passwordValid = False  # variable which indicates that a valid value has been inputted by the user
         if self.ids.email.text == "":  # if no data is inputted...
@@ -360,9 +370,7 @@ class SignIn(Launch):
                               paired=doorbellID)  # updates json object to reflect that user has successfully signed in
             self.statusUpdate()  # update launch variables
 
-            # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in
-
-            createThread_ring(self.accountID, self.filepath)
+            createThread_ring(self.accountID, self.filepath) # connect to MQTT broker to receive messages when visitor presses doorbell as now logged in
 
             self.manager.transition = NoTransition()  # creates a cut transition type
 
@@ -374,7 +382,7 @@ class MessageResponses_add(Launch):
     # 'MessageResponses_add' class allows user to add audio response messages to be played through the doorbell.
 
     def __init__(self, **kw):
-        # assigns the constants which are used in the class and gets the data on existing audio messages
+        # retrieves the data for existing audio messages
         super().__init__(**kw)
         dbData_view = {}  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         dbData_view["accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData'
@@ -395,9 +403,7 @@ class MessageResponses_add(Launch):
         except:
             pass
         Clock.schedule_once(
-            self.finishInitialising)  # Kivy rules are not applied until the original Widget (MessageResponses_add) has finished instantiating, so must delay the initialisation
-        # as the instantiation results in 1 of 2 methods (darkenImage() or audioMessage_create()) being called,
-        # each of which requires access to Kivy ids to create the GUI and this is only possible if the instantiation is delayed
+            self.finishInitialising)  # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay initialisation
 
     def finishInitialising(self, dt):
         # applies initialisation processes which require access to Kivy ids
@@ -413,7 +419,7 @@ class MessageResponses_add(Launch):
 
 
     def audioMessage_create(self, currentPage, currentMessage):
-        # method which displays the user's current audio messages and allows users to create new personalised audio messages which can be played through the doorbell
+        # displays the user's current audio messages and allows users to create new personalised audio messages which can be played through the doorbell
         if self.numMessages == 0:  # if the user has not yet recorded any audio messages
             self.addMessage_target()  # calls the method which opens the target view widget which explains to the user what a personalised audio message is
             self.ids.plusIcon.pos_hint = {"x": 0.17, "y": 0.5}  # sets the position for the plus icon
@@ -484,6 +490,7 @@ class MessageResponses_add(Launch):
                         self.ids.button_plusIcon.disabled = False
         self.ids.plusIcon.opacity = 1  # sets the opacity of the plus icon (to add more audio messages) to 1 after placing it/them in the correct position on the screen depending on how many audio messages the user has already added
 
+
     def addMessage_target(self):
         # instantiates a target view widget which explains how to utilise audio messages
         titleSpaces = '             ' # spaces required to align title text correctly
@@ -503,7 +510,7 @@ class MessageResponses_add(Launch):
             cancelable=False)
 
     def openTarget(self):
-        # method which controls the opening of the target view
+        # controls the opening of the target view
         if self.targetView.state == "close":  # if the target view is currently closed
             self.targetView.start()  # opens the target view
             self.ids.button_continueIcon.disabled = False  # activates the continue icon button
@@ -516,6 +523,7 @@ class MessageResponses_add(Launch):
             animation.start(self.continueIcon)  # starts the animation of the continue icon image
 
     def openMessage(self, buttonNum):
+        # opens correct audio message data when user taps on name of an audio message
         if buttonNum == 1:
             self.messageDetails = self.messageData[str(self.currentMessage)]
         elif buttonNum == 2:
@@ -534,10 +542,12 @@ class MessageResponses_add(Launch):
                 self.messageDetails)  # calls the 'messageDetails_init' method of the running instance of the 'MessageResponses_createAudio' class
 
     def respondAudio_select(self):
+        # called when user selects Respond button when visitor image displayed in mobile app
         self.previewMessages = True
         self.ids.previewMessages.opacity = 1  # changes background image to instruct user to select images
 
     def respondAudio_preview(self, currentMessage):
+        # formats audio message preview displayed when user selects an audio message to be played through doorbell
         messageNum = (self.currentPage - 1) * 3 + currentMessage - 1  # calculates message number so that messageID can be retrieved from json object 'self.messageData'
         self.messageID = self.messageData[str(messageNum)][0]
         self.messageName = self.messageData[str(messageNum)][1]
@@ -549,10 +559,11 @@ class MessageResponses_add(Launch):
         self.previewMessage_dialog()
 
     def respondAudio_new(self):
-        print("Create new audio message")
-        # user can create new audio message
+        pass
+
 
     def cancelRespond_dialog(self):
+        # creates dialog box which asks user to confirm whether they would like to cancel their audio message response after the doorbell has been rung
         self.dialog = MDDialog(
             title="Are you sure you want to cancel your response?",
             auto_dismiss=False,
@@ -563,16 +574,18 @@ class MessageResponses_add(Launch):
                                     on_press=self.cancelRespond)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
         self.dialog.open()  # opens the dialog box
 
+
     def cancelRespond(self, instance):
+        # called if user indicates that they would like to cancel their audio message response
         self.dialog.dismiss()
         if self.manager.get_screen('VisitorImage').ids.faceName.text == 'Face unknown':
             self.updateFaces_dialog()
         self.manager.current = "Homepage"
 
     def previewMessage_dialog(self):
-        # markup used to increase accessibility and usability
+        # creates dialog box which displays preview of audio message response before user selects to play message through mobile app
         if self.messageText == "Null":
-            text = "[b][i]This is an audio message[/i][/b]"
+            text = "[b][i]This is an audio message[/i][/b]" # markup used to increase accessibility and usability
         else:
             text = "[b]Message preview [/b]\n\n[i]" + self.messageText[:self.maxLength] + "[/i]"
         self.dialog = MDDialog(
@@ -586,9 +599,11 @@ class MessageResponses_add(Launch):
                                     on_press=self.transmitMessage)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
         self.dialog.open()  # opens the dialog box
 
+
     def transmitMessage(self, instance):
+        # transmits details about audio message response to Raspberry Pi over MQTT
         self.dialog.dismiss()
-        MQTTPython = autoclass('MQTT') # invoke with name of class
+        MQTTPython = autoclass('MQTT') # invoke Objective C class class to transmit audio message
         mqtt = MQTTPython.alloc().init()
         if self.messageText != "Null":
             mqtt.publishData = str(self.messageText)
@@ -601,7 +616,7 @@ class MessageResponses_add(Launch):
             self.updateFaces_dialog()
 
     def updateFaces_dialog(self):
-        # markup used to increase accessibility and usability
+        # create dialog box to enable user to input name of visitor if they couldn't be recognised to train facial recognition algorithm
         self.dialog = MDDialog(
             title="Enter visitor's name so SmartBell can identify them next time:",
             auto_dismiss=False,
@@ -613,7 +628,9 @@ class MessageResponses_add(Launch):
                                     on_press=self.knownFaces_update)])  # creates the dialog box with the required properties for the user to input the name of the audio message recorded/typed
         self.dialog.open()  # opens the dialog box
 
+
     def knownFaces_update(self, instance):
+        # update details of identified faces in SQL database
         global faceID
         self.dialog.dismiss()
         for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the visitor
@@ -642,22 +659,20 @@ class MessageResponses_createAudio(Launch):
         self.recordAudio_loading = "SmartBell_audioRecord_loading.zip"  # loads the zip file used to create the third part of the gif displayed when the user is recording their audio message
         self.recordAudio_end = "SmartBell_audioRecord_end.zip"  # loads the zip file used to create the final part of the gif displayed when the user is recording their audio message
         Clock.schedule_once(
-            self.finishInitialising)  # Kivy rules are not applied until the original Widget (MessageResponses_createAudio) has finished instantiating, so must delay the initialisation
-        # as the instantiation requires access to Kivy ids to create the GUI and this is only possible if the instantiation is delayed
+            self.finishInitialising) # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay initialisation
 
     def finishInitialising(self, dt):
-        # Kivy rules are not applied until the original Widget (Launch) has finished instantiating, so must delay the initialisation
-        # as the instantiation requires access to Kivy ids to create the GUI and this is only possible if the instantiation is delayed
+        # applies launch processes which require access to Kivy ids
         self.ids.recordAudio.source = self.recordAudio_static  # sets the source of the image with id 'recordAudio' to the static microphone image
         self.ids.button_recordAudio.disabled = False  # activates the button to record an audio message
 
-
     def rerecordAudio(self, messageDetails):
+        # called when user selects Record after previewing their audio message recording
         self.messageDetails = messageDetails
         self.initialRecording = False
 
     def startRecording(self):
-        # method which begins the process of recording the user's audio message
+        # begins the process of recording the user's audio message
         self.jsonStore.put("localData", initialUse=False, loggedIn=self.loggedIn, accountID=self.accountID,
                            paired=self.paired)
         self.statusUpdate()
@@ -671,7 +686,7 @@ class MessageResponses_createAudio(Launch):
         recordAudio_thread.start()  # starts the thread instance called 'self.recordAudio_thread'
 
     def stopRecording(self):
-        # method which terminates the recording of the user's audio message
+        # terminates the recording of the user's audio message
         self.ids.recordAudio.size_hint = 2, 2
         self.ids.recordAudio.source = self.recordAudio_static  # changes the source of the image with the id 'recordAudio'
         endTime = time.time()  # stops the timer which records how long button to record audio is held for
@@ -701,7 +716,7 @@ class MessageResponses_createAudio(Launch):
                     self.messageDetails)  # calls the 'messageDetails_init' method of the running instance of the 'MessageResponses_createAudio' class
 
     def helpAudio(self):
-        # method which instructs the user how to record an audio message if they press the 'Help' button
+        # instructs the user how to record an audio message if they press the 'Help' button
         self.ids.snackbar.font_size = 30
         self.ids.snackbar.text = "Press and hold the microphone to speak"  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
         self.topHeight =0.13
@@ -713,7 +728,7 @@ class MessageResponses_createAudio(Launch):
 
 
 class RecordAudio():
-    # 'recordAudio' class allows user to create personalised audio messages using voice input
+    # 'RecordAudio' class allows user to create personalised audio messages using voice input
     def __init__(self, **kw):
         # initialises constant properties for the class
         super().__init__(**kw)
@@ -724,36 +739,37 @@ class RecordAudio():
         print("init")
 
     def micCallback(self, buffer):
-        # method which is called by the class 'get_input' to store recorded audio data (each buffer of audio samples)
+        # called by the class 'get_input' to store recorded audio data (each buffer of audio samples)
         self.audioData.append(buffer)  # appends each buffer (chunk of audio data) to variable 'self.audioData'
         print("buffer")
 
     def start(self):
-        # method which begins the process of recording the audio data
+        # begins the process of recording the audio data
         self.mic.start()  # starts the method 'self.mic' recording audio data
         Clock.schedule_interval(self.readChunk,
                                 1 / self.bufferRate)  # calls the method 'self.readChunk' to read and store each audio buffer (2048 samples) 60 times per second
         print("start")
 
     def readChunk(self, bufferRate):
-        # method which coordinates the reading and storing of the bytes from each buffer of audio data (which is a chunk of 2048 samples)
+        # coordinates the reading and storing of the bytes from each buffer of audio data (which is a chunk of 2048 samples)
         self.mic.poll()  # calls 'get_input(callback=self.mic_callback, source='mic', buffersize=2048)' to read the byte content. This byte content is then dispatched to the callback method 'self.micCallback'
         print("chunk")
 
     def falseStop(self):
-        # method which terminates the audio recording when the duration of audio recording is less than 1 second
+        # terminates the audio recording when the duration of audio recording is less than 1 second
         self.audioData = []  # clears the list storing the audio data
         Clock.unschedule(self.readChunk)  # un-schedules the Clock's execution of 'self.readChunk'
         self.mic.stop()  # stops recording audio
 
     def stop(self):
-        # method which terminates and saves the audio recording when the recording has been successful
+        # terminates and saves the audio recording when the recording has been successful
         Clock.unschedule(self.readChunk)  # un-schedules the calling 'self.readChunk'
         self.mic.stop()  # stops recording audio
         return self.audioData
 
 
 class MessageResponses_view(Launch):
+    # 'MessageResponses_view' Class displays the user's names of the user's recorded audio messages
 
     def __init__(self, **kw):
         self.statusUpdate()
@@ -776,7 +792,7 @@ class MessageResponses_view(Launch):
             os.remove(join(self.filepath, (self.messageID + ".wav")))
 
     def nameMessage_dialog(self):
-        # method which allows the user to input the name of the audio message which they recorded/typed
+        # allows the user to input the name of the audio message which they recorded/typed
         if (self.initialRecording == False and self.messageType == "Voice") or (
                 self.initialTyping == False and self.messageType == "Text"):
             title = "Enter a new name for this audio message or press 'cancel' to keep it named '{}':".format(
@@ -795,14 +811,14 @@ class MessageResponses_view(Launch):
         self.dialog.open()  # opens the dialog box
 
     def dismissDialog(self, instance):
-        # overrides dismissDialog method in inherited Class - polymorphism
+        # alters dismissDialog method in inherited Class - polymorphism
         super().dismissDialog(instance)
         if (self.initialRecording == False and self.messageType == "Voice") or (
                 self.initialTyping == False and self.messageType == "Text"):
             self.audioMessages_update()
 
     def nameMessage(self, instance):
-        # method which is called when the button 'Save' is tapped on the dialog box which allows the user to input the name of the audio message they recorded/typed
+        # called when the button 'Save' is tapped on the dialog box which allows the user to input the name of the audio message they recorded/typed
         for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the audio message they recorded/typed
             if isinstance(object, MDTextField):  # if the object is an MDTextField
                 dbData_name = {}  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
@@ -853,6 +869,7 @@ class MessageResponses_view(Launch):
         return messageID  # returns the unique message ID generated for this audio message
 
     def deleteMessage(self):
+        # deletes user's audio message
         dbData_update = {}  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         dbData_update[
             "messageID"] = self.messageID  # adds the variable 'messageID' to the dictionary 'dbData_update'
@@ -861,6 +878,7 @@ class MessageResponses_view(Launch):
 
 
 class MessageResponses_viewAudio(MessageResponses_view):
+    # 'MessageResponses_viewAudio' Class displays an audio message which the user has already recorded
     def __init__(self, **kw):
         super().__init__(**kw)
         self.messagePath = join(self.filepath, "audioMessage_tmp.pkl") # filepath to store .pkl file of audio bytes for audio message which is not yet saved by user
@@ -872,7 +890,7 @@ class MessageResponses_viewAudio(MessageResponses_view):
         self.messageType = "Voice"
 
     def audioMessages_update(self):
-        # method which updates the MySQL table to store the data about the audio message created by the user
+        # updates the MySQL table to store the data about the audio message created by the user
         dbData_update = {'messageID': self.messageID, 'messageName': self.messageName, 'messageText': self.messageText, 'accountID': self.accountID, 'initialCreation': str(self.initialRecording)}  # json object which stores the metadata required for the AWS server to update the MySQL database
         response = requests.post(serverBaseURL + "/update_audioMessages",
                                  dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
@@ -885,7 +903,7 @@ class MessageResponses_viewAudio(MessageResponses_view):
         self.manager.current_screen.__init__()  # creates a new instance of the 'MessageResponses_add' class
 
     def uploadAWS(self):
-        # method which sends the data for the audio message recorded by the user as a pkl file to the AWS elastic beanstalk environment, where it is uploaded to AWS s3 using 'boto3' module
+        # sends the data for the audio message recorded by the user as a pkl file to the AWS elastic beanstalk environment, where it is uploaded to AWS s3 using 'boto3' module
         uploadData = {"bucketName": "nea-audio-messages",
                            "s3File": self.messageID}  # creates the dictionary which stores the metadata required to upload the personalised audio message to AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
         # if an audio message with the same messageID already exists, it will be overwritten
@@ -897,8 +915,7 @@ class MessageResponses_viewAudio(MessageResponses_view):
         os.remove(self.messagePath)
 
     def audioMessage_play(self):
-        # method which allows user to playback the audio message which they have recorded
-
+        # allows user to playback the audio message which they have recorded
         if os.path.isfile(join(self.filepath, (self.messageID + ".wav"))):
             fileName = join(self.filepath, self.messageID)
             print("wav on app")
@@ -932,15 +949,18 @@ class MessageResponses_viewAudio(MessageResponses_view):
         thread_stopGif.start()  # starts the thread which will run in pseudo-parallel to the rest of the program
 
     def stopGif(self):
+        # ends the looping of the playback gif
         time.sleep(self.audioLength)
         self.ids.playbackAudio.source = self.playbackAudio_static
 
     def tmpAudio_delete(self):
+        # deletes the temporary audio file
         if os.path.isfile(self.messagePath):
             os.remove(self.messagePath)
 
 
 class MessageResponses_createText(MessageResponses_view):
+    # 'MessageResponses_createText' Class displays a typed audio message which the user has created
     def __init__(self, **kw):
         super().__init__(**kw)
         self.initialTyping = True
@@ -948,6 +968,7 @@ class MessageResponses_createText(MessageResponses_view):
         self.messageType = "Text"
 
     def saveMessage(self):
+        # creates dialog box to specify name for typed audio message
         if (len(list((self.ids.messageText.text).strip())) > 80 or len(list((self.ids.messageText.text).strip())) == 0):
             self.ids.snackbar.font_size = 30
             self.ids.snackbar.text = "Sorry, the text you have entered is invalid!\nPlease make sure your message is between\n1 and 80 characters."  # creates specific text for the generic Label which is used as a snackbar in a varity of scenarios in the app
@@ -961,7 +982,7 @@ class MessageResponses_createText(MessageResponses_view):
             self.nameMessage_dialog()
 
     def audioMessages_update(self):
-        # method which updates the MySQL table to store the data about the audio message created by the user
+        # updates the MySQL table to store the data about the audio message created by the user
         messageText = self.ids.messageText.text
         #self.statusUpdate() # get latest value for accountID
         dbData_update = {}  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
@@ -986,21 +1007,23 @@ class MessageResponses_createText(MessageResponses_view):
 
 
 class VisitorLog(Launch):
+    # 'VisitorLog' class displays the details of the visits to the user's doorbell
+
     def __init__(self, **kw):
         super().__init__(**kw)
         thread = Thread(target=self.schedule)
         thread.start()
 
-
     def schedule(self):
         Clock.schedule_once(self.visitorLog)
 
     def visitorLog(self, dt):
+        # creates visitor log
         self.statusUpdate()
         self.get_averageRate()
         self.get_averageTime()
         dbData_accountID = {"accountID": self.accountID}
-        self.visitors = requests.post(serverBaseURL + "/get_visitorLog", dbData_accountID).json() # get visitor log details associated with user's account
+        self.visitors = requests.post(serverBaseURL + "/get_visitorLog", dbData_accountID).json() # retrieve visitor log details associated with user's account
         for index, visitDetails in enumerate(self.visitors): # iterate through visit details in visitor log
             self.epoch = float(visitDetails[0][6:])
             self.date = time.strftime('%d-%m-%Y, %H:%M:%S', time.gmtime(self.epoch)) # convert epoch time in seconds into actual time/date
@@ -1021,6 +1044,7 @@ class VisitorLog(Launch):
         self.displayLog('date')
 
     def displayLog(self, dateORname):
+        # create scrolling list to display visitor log
         self.visitorsSorted = self.mergeSort(self.visitorsFormatted, dateORname) # sort list storing visit details by visitor name or by date of visit
         self.ids.container.clear_widgets() # clear existing visitor log scroll list
         for visit in self.visitorsSorted:
@@ -1029,6 +1053,7 @@ class VisitorLog(Launch):
             self.ids.container.add_widget(rowWidget) # add row widget to scroll list
 
     def get_visitorImage(self):
+        # download visitor images from AWS to display in visitor log
         downloadData = {"bucketName": "nea-visitor-log",
                         "s3File": self.visitID}  # creates the dictionary which stores the metadata required to download the png file of the visitor image from AWS S3 (via the server REST API)
         response = requests.post(serverBaseURL + "/downloadS3",
@@ -1043,6 +1068,7 @@ class VisitorLog(Launch):
 
 
     def mergeSort(self, array, dateORname):
+        # sorts visitor log by criteria specified by user
         if dateORname == 'date':
             index = 1 # specifies index of value in 'array' to be used to sort array
             self.date = True
@@ -1085,14 +1111,16 @@ class VisitorLog(Launch):
         return array
 
 
-    def get_averageRate(self): # get average number of visits per day
+    def get_averageRate(self):
+        # get average number of visits per day
         dbData_accountID = {"accountID": self.accountID}
         response = requests.post(serverBaseURL + "/get_averageRate", dbData_accountID)
         self.averageRate = str(round(response.json()['result'],1))
         text = f"Average number of visits per day: {str(self.averageRate)} visits"
         self.ids.averageRate.text = text
 
-    def get_averageTime(self): # get average time when doorbell is rung
+    def get_averageTime(self):
+        # get average time when doorbell is rung
         dbData_accountID = {"accountID": self.accountID}
         response = requests.post(serverBaseURL + "/get_averageTime", dbData_accountID)
         self.averageTime = round(response.json()['result'],2)
@@ -1103,15 +1131,16 @@ class VisitorLog(Launch):
         self.ids.averageTime.text = text
 
 
-
-
 class RingAlert(Launch):
+    # 'RingAlert' Class displays a screen with a pulsating doorbell image when the doorbell is rung
     pass
 
 
 class VisitorImage(Launch):
+    # 'VisitorImage' Class displays the image of the visitor when the doorbell is rung
 
     def viewImage(self):
+        # image of visitor and associated name (if identified) displayed in mobile app
         global faceID
         self.statusUpdate()
         dbData_accountID = {"accountID": self.accountID}
@@ -1135,7 +1164,7 @@ class VisitorImage(Launch):
             thread_visitorImage.setDaemon(True)
             thread_visitorImage.start()
             data_visitID = {"visitID": visitID}
-            response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
+            response = requests.post(serverBaseURL + "/getVisit", data_visitID).json()
             faceID = response[1]
             if faceID != "NO_FACE":  # faceID is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
                 data_faceID = {"faceID": str(faceID)}
@@ -1149,6 +1178,7 @@ class VisitorImage(Launch):
             self.ids.faceName.text = faceName
 
     def cancelRespond_dialog(self):
+        # creates dialog box which asks user to confirm whether they want to cancel their audio message response after the doorbell has been rung
         self.dialog = MDDialog(
             title="Are you sure you want to cancel your response?",
             auto_dismiss=False,
@@ -1160,13 +1190,14 @@ class VisitorImage(Launch):
         self.dialog.open()  # opens the dialog box
 
     def cancelRespond(self, instance):
+        # called if user indicates that they would like to cancel their audio message response
         self.dialog.dismiss()
         if self.ids.faceName.text == 'Face unknown':
             self.updateFaces_dialog()
         self.manager.current = "Homepage"
 
     def updateFaces_dialog(self):
-        # markup used to increase accessibility and usability
+        # creates dialog box which gives user option to enter name of visitor if they weren't identified by the facial recognition algorithm
         self.dialog = MDDialog(
             title="Enter visitor's name so SmartBell can identify them next time:",
             auto_dismiss=False,
@@ -1179,6 +1210,7 @@ class VisitorImage(Launch):
         self.dialog.open()  # opens the dialog box
 
     def knownFaces_update(self, instance):
+        # store details about visitor's face in SQL database
         global faceID
         self.dialog.dismiss()
         for object in self.dialog.content_cls.children:  # iterates through the objects of the dialog box where the user inputted the name of the visitor
@@ -1190,6 +1222,7 @@ class VisitorImage(Launch):
 
 
 class DialogContent(BoxLayout):
+    # 'DialogContent' Class contains the standard structure for a Kivy Dialog box
     pass
 
 
@@ -1199,7 +1232,9 @@ class MyApp(MDApp):
         layout = Builder.load_file("layout.kv")  # loads the 'layout.kv' file
         return layout
 
+
 def visitorImage_thread(visitID, visitorImage_path):
+    # downloads the image of the visitor when the doorbell is rung and displays it in the mobile app
     try:
         for visitorImage in MDApp.get_running_app().manager.get_screen('VisitorImage').ids.visitorImage.children:
             visitorImage.opacity = 0
@@ -1232,7 +1267,9 @@ def visitorImage_thread(visitID, visitorImage_path):
         visitorImage)  # accesses screen ids of 'VisitorImage' screen and adds the visitor image as a widget to a nested Kivy float layout MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
     MDApp.get_running_app().manager.get_screen('VisitorImage').ids.loading.opacity = 0 # set opacity of image loading gif to zero as image is loaded and displayed
 
+
 def createThread_ring(accountID, filepath):
+    # interfaces with Objective C class 'MQTT' to create client which will receive message when doorbell rung
     MQTTPython = autoclass(
         'MQTT') # autoclass used to load Objective-C class 'MQTT' and create a Python wrapper around it
     mqtt = MQTTPython.alloc().init() # instance of the Objective-C 'MQTT' class created
@@ -1244,14 +1281,14 @@ def createThread_ring(accountID, filepath):
     return
 
 
-
-
 def createThread_visit(visitID):
+    # creates thread which downloads visitor image from AWS S3 storage
     thread_visit = Thread(target=visitThread, args=(visitID,))
     thread_visit.start()
 
 
 def ringThread(mqtt, visitorImage_path):
+    # checks status of Objective C class attributes to verify whether MQTT message indicating that doorbell has been rung is received
     while True:
         if mqtt.messageReceived_ring == 1: # if message received on topic 'ring/accountID' by Objective-C MQTT session instance (i.e. SmartBell doorbell rung)
             try:  # runs successfully if visitor image already exists on app
@@ -1300,12 +1337,13 @@ def ringThread(mqtt, visitorImage_path):
 
 
 def visitThread(visitID):
+    # download visitor image from latest ring of doorbell and display in mobile app
     global faceID
     while True:
         data_visitID = {"visitID": visitID}
         response = None
         while response == None:  # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-            response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
+            response = requests.post(serverBaseURL + "/getVisit", data_visitID).json()
             time.sleep(1)
         faceID = response[1]
         if faceID != "NO_FACE":  # faceID is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
@@ -1322,6 +1360,7 @@ def visitThread(visitID):
 
 
 def pairThread(accountID, id, pairing, jsonStore):
+    # checks pairing status between mobile app and doorbell
     start_time = time.time()
     dbData_id = {'id': id}
     MDApp.get_running_app().manager.get_screen('Homepage').topHeight = 0.13
