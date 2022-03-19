@@ -109,7 +109,6 @@ class Homepage(Launch):
         # signs user out of their account
         self.dialog.dismiss()
         self.jsonStore.put("localData", initialUse=self.initialUse, loggedIn=False, accountID='', paired=False)
-        print(self.jsonStore.get("localData"))
         self.statusUpdate()
         MDApp.get_running_app().manager.get_screen('SignUp').ids.firstName.text = ''
         MDApp.get_running_app().manager.get_screen('SignUp').ids.surname.text = ''
@@ -736,24 +735,20 @@ class RecordAudio():
         self.audioData = []  # creates a list to store the audio bytes recorded
         self.mic = get_input(callback=self.micCallback, rate=8000, source='default',
                              buffersize=2048)  # initialises the class 'get_input' from the module 'audiostream' with the properties required to ensure the audio is recorded correctly
-        print("init")
 
     def micCallback(self, buffer):
         # called by the class 'get_input' to store recorded audio data (each buffer of audio samples)
         self.audioData.append(buffer)  # appends each buffer (chunk of audio data) to variable 'self.audioData'
-        print("buffer")
 
     def start(self):
         # begins the process of recording the audio data
         self.mic.start()  # starts the method 'self.mic' recording audio data
         Clock.schedule_interval(self.readChunk,
                                 1 / self.bufferRate)  # calls the method 'self.readChunk' to read and store each audio buffer (2048 samples) 60 times per second
-        print("start")
 
     def readChunk(self, bufferRate):
         # coordinates the reading and storing of the bytes from each buffer of audio data (which is a chunk of 2048 samples)
         self.mic.poll()  # calls 'get_input(callback=self.mic_callback, source='mic', buffersize=2048)' to read the byte content. This byte content is then dispatched to the callback method 'self.micCallback'
-        print("chunk")
 
     def falseStop(self):
         # terminates the audio recording when the duration of audio recording is less than 1 second
@@ -918,7 +913,6 @@ class MessageResponses_viewAudio(MessageResponses_view):
         # allows user to playback the audio message which they have recorded
         if os.path.isfile(join(self.filepath, (self.messageID + ".wav"))):
             fileName = join(self.filepath, self.messageID)
-            print("wav on app")
         else:
             if os.path.isfile(self.messagePath):
                 with open(self.messagePath, "rb") as file:
@@ -926,14 +920,12 @@ class MessageResponses_viewAudio(MessageResponses_view):
                     file.close()  # closes the file
                     self.audioRename = True
                     fileName = join(self.filepath, "audioMessage_tmp")
-                    print("pkl on app")
             else:
                 fileName = join(self.filepath, self.messageID)
                 downloadData = {"bucketName": "nea-audio-messages",
                                      "s3File": self.messageID}  # creates the dictionary which stores the metadata required to download the pkl file of the personalised audio message from AWS S3 using the 'boto3' module on the AWS elastic beanstalk environment
                 response = requests.post(serverBaseURL + "/downloadS3", downloadData)
                 audioData = pickle.loads(response.content)  # unpickles the byte string
-                print("pkl on AWS")
             messageFile = wave.open(fileName + ".wav", "wb") # load .wav file in write bytes mode
             messageFile.setnchannels(1)  # audiostream module records in single audio channel
             messageFile.setsampwidth(2) # bytes per audio sample
@@ -1144,7 +1136,6 @@ class VisitorImage(Launch):
         global faceID
         self.statusUpdate()
         dbData_accountID = {"accountID": self.accountID}
-        print(self.jsonStore.get('localData'))
         response = requests.post(serverBaseURL + "/latest_visitorLog", dbData_accountID).json()['result']
         if response == 'none':
             self.manager.get_screen(
@@ -1170,7 +1161,7 @@ class VisitorImage(Launch):
                 data_faceID = {"faceID": str(faceID)}
                 faceName = None
                 while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-                    faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
+                    faceName = requests.post(serverBaseURL + "/get_faceName", data_faceID).json()[0]
                 if faceName == "":
                     faceName = "Face unknown"
             else:
@@ -1350,7 +1341,7 @@ def visitThread(visitID):
             data_faceID = {"faceID": str(faceID)}
             faceName = None
             while faceName == None:  # loop until faceID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-                faceName = requests.post(serverBaseURL + "/view_knownFaces", data_faceID).json()[0]
+                faceName = requests.post(serverBaseURL + "/get_faceName", data_faceID).json()[0]
             if faceName == "":
                 faceName = "Face unknown"
         else:
