@@ -692,7 +692,7 @@ class MessageResponses_createAudio(Launch):
             with open(messagePath,
                       "wb") as file:  # create pkl file with name equal to the messageID in write bytes mode
                 pickle.dump(audioData,
-                            file)  # 'pickle' module serializes the data stored in the object (list) 'audioData' into a byte stream which is stored in pkl file
+                            file)  # 'pickle' module serializes the data stored in the Python list object 'audioData' into a byte stream which is stored in pkl file
                 file.close()  # closes the file
             self.manager.current = "MessageResponses_viewAudio"  # switches to 'MessageResponses_viewAudio' GUI
             self.manager.current_screen.__init__()  # initialises the running instance of the 'MessageResponses_createAudio' class
@@ -717,14 +717,14 @@ class RecordAudio():
     def __init__(self, **kw):
         # initialises constant properties for the class
         super().__init__(**kw)
-        self.sampleRate = 60  # variables which stores the number of audio samples recorded per second
+        self.bufferRate = 60  # variables which stores the number of audio buffers recorded per second
         self.audioData = []  # creates a list to store the audio bytes recorded
         self.mic = get_input(callback=self.micCallback, rate=8000, source='default',
-                             buffersize=2048)  # initialises the method 'get_input' from the module 'audiostream' with the properties required to ensure the audio is recorded correctly
+                             buffersize=2048)  # initialises the class 'get_input' from the module 'audiostream' with the properties required to ensure the audio is recorded correctly
         print("init")
 
     def micCallback(self, buffer):
-        # method which is called by the method 'get_input' to store recorded audio data (each buffer of audio samples)
+        # method which is called by the class 'get_input' to store recorded audio data (each buffer of audio samples)
         self.audioData.append(buffer)  # appends each buffer (chunk of audio data) to variable 'self.audioData'
         print("buffer")
 
@@ -732,10 +732,10 @@ class RecordAudio():
         # method which begins the process of recording the audio data
         self.mic.start()  # starts the method 'self.mic' recording audio data
         Clock.schedule_interval(self.readChunk,
-                                1 / self.sampleRate)  # calls the method 'self.readChunk' to read and store each audio buffer (2048 samples) 60 times per second
+                                1 / self.bufferRate)  # calls the method 'self.readChunk' to read and store each audio buffer (2048 samples) 60 times per second
         print("start")
 
-    def readChunk(self, sampleRate):
+    def readChunk(self, bufferRate):
         # method which coordinates the reading and storing of the bytes from each buffer of audio data (which is a chunk of 2048 samples)
         self.mic.poll()  # calls 'get_input(callback=self.mic_callback, source='mic', buffersize=2048)' to read the byte content. This byte content is then dispatched to the callback method 'self.micCallback'
         print("chunk")
@@ -743,12 +743,12 @@ class RecordAudio():
     def falseStop(self):
         # method which terminates the audio recording when the duration of audio recording is less than 1 second
         self.audioData = []  # clears the list storing the audio data
-        Clock.unschedule(self.readChunk)  # un-schedules the Clock's rythmic execution of the 'self.readChunk' callback
+        Clock.unschedule(self.readChunk)  # un-schedules the Clock's execution of 'self.readChunk'
         self.mic.stop()  # stops recording audio
 
     def stop(self):
         # method which terminates and saves the audio recording when the recording has been successful
-        Clock.unschedule(self.readChunk)  # un-schedules the Clock's rythmic execution of the 'self.readChunk' callback
+        Clock.unschedule(self.readChunk)  # un-schedules the calling 'self.readChunk'
         self.mic.stop()  # stops recording audio
         return self.audioData
 
@@ -840,13 +840,10 @@ class MessageResponses_view(Launch):
 
     def createMessageID(self):
         # creates a unique messageID for the audio message created by the user
-        dbData_create = {}  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
         while True:  # creates an infinite loop
             chars = string.ascii_uppercase + string.ascii_lowercase + string.digits  # creates a concatenated string of all the uppercase and lowercase alphabetic characters and all the digits (0-9)
-            messageID = ''.join(random.choice(chars) for i in range(
-                16))  # the 'random' module randomly selects 16 characters from the string 'chars' to form the unique messageID
-            dbData_create[
-                "messageID"] = messageID  # adds the variable 'messageID' to the dictionary 'dbData_create'
+            messageID = ''.join(random.choice(chars) for i in range(16))  # the 'random' module randomly selects 16 characters from the string 'chars' to form the unique messageID
+            dbData_create = {"messageID": messageID}  # adds the variable 'messageID' to the dictionary 'dbData_create'
             response = requests.post(serverBaseURL + "/verify_messageID",
                                      dbData_create)  # sends post request to 'verify_messageID' route on AWS server to check whether the messageID that has been generated for an audio message does not already exist
             if response.text == "notExists":  # if the messageID does not yet exist
@@ -866,7 +863,7 @@ class MessageResponses_view(Launch):
 class MessageResponses_viewAudio(MessageResponses_view):
     def __init__(self, **kw):
         super().__init__(**kw)
-        self.messagePath = join(self.filepath, "audioMessage_tmp.pkl")
+        self.messagePath = join(self.filepath, "audioMessage_tmp.pkl") # filepath to store .pkl file of audio bytes for audio message which is not yet saved by user
         self.playbackAudio_gif = "SmartBell_playbackAudio.zip"  # loads the zip file used to create the audio playback gif
         self.playbackAudio_static = "SmartBell_playbackAudio.png"  # loads the image file of the audio playback static image
         self.initialRecording = True
@@ -876,17 +873,7 @@ class MessageResponses_viewAudio(MessageResponses_view):
 
     def audioMessages_update(self):
         # method which updates the MySQL table to store the data about the audio message created by the user
-        dbData_update = {}  # dictionary which stores the metadata required for the AWS server to make the required query to the MySQL database
-        dbData_update[
-            "messageID"] = self.messageID  # adds the variable 'messageID' to the dictionary 'dbData_update'
-        dbData_update[
-            "messageName"] = self.messageName  # adds the variable 'messageName' to the dictionary 'dbData_update'
-        dbData_update[
-            "messageText"] = "Null"  # adds the 'null' variable 'fileText' to the dictionary 'dbData_update'
-        dbData_update[
-            "accountID"] = self.accountID  # adds the variable 'accountID' to the dictionary 'dbData_update'
-        dbData_update["initialCreation"] = str(
-            self.initialRecording)  # adds the variable 'initialRecording' to the dictionary 'dbData_update'
+        dbData_update = {'messageID': self.messageID, 'messageName': self.messageName, 'messageText': self.messageText, 'accountID': self.accountID, 'initialCreation': str(self.initialRecording)}  # json object which stores the metadata required for the AWS server to update the MySQL database
         response = requests.post(serverBaseURL + "/update_audioMessages",
                                  dbData_update)  # sends post request to 'update_audioMessages' route on AWS server to insert the data about the audio message which the user has created into the MySQL table 'audioMessages'
         try:  # wav file to be uploaded to AWS only exists if a new audio message has been recorded - else if the audio message name has just been changed, the statement will break
@@ -904,7 +891,7 @@ class MessageResponses_viewAudio(MessageResponses_view):
         # if an audio message with the same messageID already exists, it will be overwritten
         file = {"file": open(self.messagePath,
                              "rb")}  # opens the file to be sent using Flask's 'request' method (which contains the byte stream of audio data) and stores the file in a dictionary
-        response = requests.post(serverBaseURL + "/uploadS3", files=file,
+        requests.post(serverBaseURL + "/uploadS3", files=file,
                                  data=uploadData)  # sends post request to 'uploadS3' route on AWS server to upload the pkl file storing the data about the audio message to AWS s3 using 'boto3'
         # This is done because the 'boto3' module cannot be installed on mobile phones so the process of uploading the pkl file to AWS s3 using boto3 must be done remotely on the AWS elastic beanstalk environment
         os.remove(self.messagePath)
@@ -930,11 +917,11 @@ class MessageResponses_viewAudio(MessageResponses_view):
                 response = requests.post(serverBaseURL + "/downloadS3", downloadData)
                 audioData = pickle.loads(response.content)  # unpickles the byte string
                 print("pkl on AWS")
-            messageFile = wave.open(fileName + ".wav", "wb")
-            messageFile.setnchannels(1)  # change to 1 for audio stream module
-            messageFile.setsampwidth(2)
-            messageFile.setframerate(8000)  # change to 8000 for audio stream module
-            messageFile.writeframes(b''.join(audioData))
+            messageFile = wave.open(fileName + ".wav", "wb") # load .wav file in write bytes mode
+            messageFile.setnchannels(1)  # audiostream module records in single audio channel
+            messageFile.setsampwidth(2) # bytes per audio sample
+            messageFile.setframerate(8000) # samples recorded per second
+            messageFile.writeframes(b''.join(audioData)) # join together each element in the bytes list 'audioData' (each element is an audio buffer)
             messageFile.close()
         messageFile_voice = SoundLoader.load(fileName + ".wav")
         messageFile_voice.play()
@@ -1013,32 +1000,33 @@ class VisitorLog(Launch):
         self.get_averageRate()
         self.get_averageTime()
         dbData_accountID = {"accountID": self.accountID}
-        self.visitors = requests.post(serverBaseURL + "/get_visitorLog", dbData_accountID).json()
-        for index, visitDetails in enumerate(self.visitors):
+        self.visitors = requests.post(serverBaseURL + "/get_visitorLog", dbData_accountID).json() # get visitor log details associated with user's account
+        for index, visitDetails in enumerate(self.visitors): # iterate through visit details in visitor log
+            self.epoch = float(visitDetails[0][6:])
+            self.date = time.strftime('%d-%m-%Y, %H:%M:%S', time.gmtime(self.epoch)) # convert epoch time in seconds into actual time/date
             self.faceID = visitDetails[1]
             self.visitID = visitDetails[2]
-            self.date = time.strftime('%d-%m-%Y, %H:%M:%S', time.gmtime(float(visitDetails[0][6:])))
             self.visitorImage_path = join(self.filepath, self.visitID + '.png')
-            self.get_visitorImage()
-            if self.faceID != 'NO_FACE':
+            self.get_visitorImage() # download visitor image for visit 'visitID'
+            if self.faceID != 'NO_FACE': # if face identified for visit
                 dbData_faceID = {"faceID": self.faceID}
                 result = requests.post(serverBaseURL + "/get_faceName", dbData_faceID).json()
                 faceName = result[0]
                 self.visitors[index][1] = faceName # replace face ID with face name
             else: # if no face identified
                 self.visitors[index][1] = 'No face identified'
-            self.visitors[index][2] = self.visitorImage_path
-            self.visitors[index] += (self.date,) # append to tuple
-        self.visitors = list(map(lambda a:(a[0][6:], a[1], a[2], a[3]), self.visitors)) # create tuples sorted by time
+            self.visitors[index][2] = self.visitorImage_path # store path to visitor image associated with visit ID
+            self.visitors[index] += (self.date,) # append the date to the tuple 'visitors'
+        self.visitorsFormatted = list(map(lambda a:(a[0][6:], a[1], a[2], a[3]), self.visitors)) # create array storing required values
         self.displayLog('date')
 
     def displayLog(self, dateORname):
-        self.visitorsSorted = self.mergeSort(self.visitors, dateORname)
-        self.ids.container.clear_widgets()
-        for i in range(len(self.visitorsSorted)):
-            newWidget = TwoLineAvatarListItem(text=f"Name: {self.visitorsSorted[i][1]}", secondary_text = f"Date: {self.visitorsSorted[i][3]}")
-            newWidget.add_widget(ImageLeftWidget(source= self.visitorsSorted[i][2]))
-            self.ids.container.add_widget(newWidget)
+        self.visitorsSorted = self.mergeSort(self.visitorsFormatted, dateORname) # sort list storing visit details by visitor name or by date of visit
+        self.ids.container.clear_widgets() # clear existing visitor log scroll list
+        for visit in self.visitorsSorted:
+            rowWidget = TwoLineAvatarListItem(text=f"Name: {visit[1]}", secondary_text = f"Date: {visit[3]}") # create row widget with visitor name and date
+            rowWidget.add_widget(ImageLeftWidget(source= visit[2])) # add associated visit image to row widget
+            self.ids.container.add_widget(rowWidget) # add row widget to scroll list
 
     def get_visitorImage(self):
         downloadData = {"bucketName": "nea-visitor-log",
@@ -1056,45 +1044,40 @@ class VisitorLog(Launch):
 
     def mergeSort(self, array, dateORname):
         if dateORname == 'date':
-            index = 1
+            index = 1 # specifies index of value in 'array' to be used to sort array
             self.date = True
         else:
-            index = 0
+            index = 0 # specifies index of value in 'array' to be used to sort array
             self.date = False
-        if len(array) > 1:
+        if len(array) > 1: # if array has length greater than 1, continue splitting it
+            mid = len(array) // 2 # find middle index of array
+            left = array[:mid] # store left half of array elements
+            right = array[mid:] # store right half of array elements
 
-            # Finding the mid of the array
-            mid = len(array) // 2
+            self.mergeSort(left, dateORname) # recursively call the mergesort function on the left of array elements to sort left half
+            self.mergeSort(right, dateORname) # recursively call the mergesort function on the right of array elements to sort right half
 
-            # Dividing the array elements
-            left = array[:mid]
-
-            # into 2 halves
-            right = array[mid:]
-
-            # Sorting the first half
-            self.mergeSort(left, dateORname)
-
-            # Sorting the second half
-            self.mergeSort(right, dateORname)
-
-            i = j = k = 0
-
+            # merge and sort left and right array
+            i = 0 # left array index
+            j = 0 # right array index
+            k = 0 # main array index
             while i < len(left) and j < len(right):
-                if left[i][index] < right[j][index]: # sort by first item in tuple
-                    array[k] = left[i]
-                    i += 1
-                else:
+                # sort array by comparing and swapping values in tuple at index 'index'
+                if left[i][index] < right[j][index]: # value in left array less than value in right array
+                    array[k] = left[i] # save value in left index into merged array
+                    i += 1 # move to next index in left array
+                else: # value in left array greater than or equal to value in right array
                     array[k] = right[j]
-                    j += 1
-                k += 1
+                    j += 1 # move to next index in right array
+                k += 1 # move to next index in merged array
 
-            # Checking if any element was left
+            # move all remaining values in left array into merged array, as no more values in right array to compare with
             while i < len(left):
                 array[k] = left[i]
                 i += 1
                 k += 1
 
+            # move all remaining values in right array into merged array, as no more values in left array to compare with
             while j < len(right):
                 array[k] = right[j]
                 j += 1
@@ -1102,14 +1085,14 @@ class VisitorLog(Launch):
         return array
 
 
-    def get_averageRate(self):
+    def get_averageRate(self): # get average number of visits per day
         dbData_accountID = {"accountID": self.accountID}
         response = requests.post(serverBaseURL + "/get_averageRate", dbData_accountID)
         self.averageRate = str(round(response.json()['result'],1))
         text = f"Average number of visits per day: {str(self.averageRate)} visits"
         self.ids.averageRate.text = text
 
-    def get_averageTime(self):
+    def get_averageTime(self): # get average time when doorbell is rung
         dbData_accountID = {"accountID": self.accountID}
         response = requests.post(serverBaseURL + "/get_averageTime", dbData_accountID)
         self.averageTime = round(response.json()['result'],2)
