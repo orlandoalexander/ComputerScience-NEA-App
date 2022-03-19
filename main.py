@@ -1164,7 +1164,7 @@ class VisitorImage(Launch):
             thread_visitorImage.setDaemon(True)
             thread_visitorImage.start()
             data_visitID = {"visitID": visitID}
-            response = requests.post(serverBaseURL + "/getVisit", data_visitID).json()
+            response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
             faceID = response[1]
             if faceID != "NO_FACE":  # faceID is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
                 data_faceID = {"faceID": str(faceID)}
@@ -1343,7 +1343,7 @@ def visitThread(visitID):
         data_visitID = {"visitID": visitID}
         response = None
         while response == None:  # loop until visitID record has been added to db by Raspberry Pi (ensures no error arises in case of latency between RPi inserting vistID data to db and mobile app retrieving this data here)
-            response = requests.post(serverBaseURL + "/getVisit", data_visitID).json()
+            response = requests.post(serverBaseURL + "/view_visitorLog", data_visitID).json()
             time.sleep(1)
         faceID = response[1]
         if faceID != "NO_FACE":  # faceID is set to 'NO_FACE' when a face cannot be detected in the image taken by the doorbell
